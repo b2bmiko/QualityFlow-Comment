@@ -1,0 +1,384 @@
+{{velocity}}
+$xwiki.ssfx.use("QualityFlow.QFStyles", true)
+$xwiki.jsfx.use("QualityFlow.QFScripts", true)
+#set($currentDocRef = "${doc.space}.${doc.name}")
+#set($holderName = $currentDocRef.replaceAll('[^a-zA-Z0-9]', ''))
+#set($holderRef = "QualityFlow.Comments.${holderName}")
+#set($holderDoc = $xwiki.getDocument($holderRef))
+#set($returnUrl = $doc.getURL('view'))
+#set($classRef = "QualityFlow.CommentClass")
+#set($reviewerClassRef = "QualityFlow.ReviewerClass")
+#set($approvalClassRef = "QualityFlow.ApprovalClass")
+#set($allComments = $holderDoc.getObjects($classRef))
+#if(!$allComments)#set($allComments = [])#end
+#set($openComments = [])
+#set($resolvedComments = [])
+#set($openBlockers = 0)
+#foreach($c in $allComments)
+#if($c.getValue('status') == 'Open')
+#set($void = $openComments.add($c))
+#if($c.getValue('type') == 'Blocker')
+#set($openBlockers = $openBlockers + 1)
+#end
+#else
+#set($void = $resolvedComments.add($c))
+#end
+#end
+#set($totalComments = $allComments.size())
+#set($openCount = $openComments.size())
+#set($resolvedCount = $resolvedComments.size())
+#set($allReviewers = $holderDoc.getObjects($reviewerClassRef))
+#if(!$allReviewers)#set($allReviewers = [])#end
+#set($pendingReviewers = [])
+#set($doneReviewers = [])
+#foreach($r in $allReviewers)
+#if($r.getValue('status') == 'Done')
+#set($void = $doneReviewers.add($r))
+#else
+#set($void = $pendingReviewers.add($r))
+#end
+#end
+#set($currentUser = $xcontext.user)
+#set($isGuest = ($currentUser == 'XWiki.XWikiGuest'))
+#set($isReviewer = false)
+#set($isQM = false)
+#set($isAPO = false)
+#if(!$isGuest)
+#set($isReviewer = $xwiki.getUser($currentUser).isUserInGroup('XWiki.QFReviewers'))
+#set($isQM = $xwiki.getUser($currentUser).isUserInGroup('XWiki.QFQualityManagers'))
+#set($isAPO = $xwiki.getUser($currentUser).isUserInGroup('XWiki.QFAPO'))
+#end
+#set($canAct = (!$isGuest && ($isReviewer || $isQM)))
+#set($pendingCount = $pendingReviewers.size())
+#set($isGateLocked = ($openBlockers > 0 || $pendingCount > 0))
+#set($allApprovals = $holderDoc.getObjects($approvalClassRef))
+#if(!$allApprovals)#set($allApprovals = [])#end
+#set($latestApproval = false)
+#foreach($ap in $allApprovals)
+#set($latestApproval = $ap)
+#end
+#set($progressPct = 0)
+#if($totalComments > 0)
+#set($progressPct = ($resolvedCount * 100 / $totalComments))
+#end
+{{/velocity}}
+
+{{html clean="false" wiki="true"}}
+{{velocity}}
+<style>
+.qf-layout{display:flex;align-items:flex-start;gap:0;padding-bottom:60px}
+.qf-doc-body{flex:1 1 70%;min-width:0;padding-right:16px}
+.qf-sidebar{flex:0 0 320px;width:320px;background:#f8f9fa;border-left:1px solid #dee2e6;border-radius:4px;padding:12px;max-height:calc(100vh - 120px);overflow-y:auto;position:sticky;top:16px;font-size:13px}
+.qf-sidebar-header{padding-bottom:10px;border-bottom:1px solid #dee2e6;margin-bottom:10px}
+.qf-progress-label{font-size:12px;color:#6c757d;margin-bottom:4px}
+.qf-progress-bar{background:#e9ecef;border-radius:4px;height:6px;margin-bottom:6px}
+.qf-progress-fill{background:#28a745;height:6px;border-radius:4px;transition:width .3s ease}
+.qf-reviewer-list{margin-bottom:12px}
+.qf-reviewer-item{display:flex;align-items:center;gap:8px;padding:4px 0}
+.qf-reviewer-name{flex:1;font-size:12px}
+.qf-avatar{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#6c757d;color:#fff;font-size:11px;font-weight:700;flex-shrink:0}
+.qf-avatar-resolved{background:#adb5bd}
+.qf-badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:.5px}
+.qf-badge-blocker{background:#f8d7da;color:#842029;border:1px solid #f1aeb5}
+.qf-badge-suggestion{background:#cfe2ff;color:#084298;border:1px solid #9ec5fe}
+.qf-badge-question{background:#fff3cd;color:#664d03;border:1px solid #ffda6a}
+.qf-badge-resolved{opacity:.6}
+.qf-reviewer-badge{font-size:10px;padding:2px 6px;border-radius:10px}
+.qf-badge-done{background:#d1e7dd;color:#0f5132}
+.qf-badge-pending{background:#fff3cd;color:#664d03}
+.qf-tabs{display:flex;border-bottom:2px solid #dee2e6;margin-bottom:10px}
+.qf-tab{background:0 0;border:none;padding:6px 12px;cursor:pointer;font-size:12px;color:#6c757d;border-bottom:2px solid transparent;margin-bottom:-2px}
+.qf-tab-active{color:#0d6efd;border-bottom-color:#0d6efd;font-weight:600}
+.qf-tab-count{background:#e9ecef;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px}
+.qf-comment-card{background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:10px;margin-bottom:8px;transition:box-shadow .2s}
+.qf-comment-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.qf-card-resolved{opacity:.75;background:#f8f9fa}
+.qf-card-focused{box-shadow:0 0 0 3px rgba(13,110,253,.35)!important}
+.qf-card-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+.qf-card-author{font-size:12px;font-weight:600;flex:1}
+.qf-card-section{font-size:11px;color:#6c757d;margin-bottom:2px}
+.qf-card-timestamp{font-size:11px;color:#adb5bd;margin-bottom:4px}
+.qf-card-body{font-size:12px;line-height:1.5}
+.qf-card-response{margin-top:6px;padding:6px;background:#e8f4e8;border-radius:4px;font-size:12px;color:#155724}
+.qf-resolved-meta{font-size:11px;color:#6c757d;margin-top:4px}
+.qf-resolved-label{font-size:11px;color:#28a745;font-weight:600}
+.qf-card-actions{margin-top:8px;display:flex;gap:6px}
+.qf-anchor-icon{font-size:12px;text-decoration:none;color:#6c757d}
+.qf-btn{padding:4px 10px;border-radius:4px;border:1px solid #dee2e6;background:#fff;cursor:pointer;font-size:12px;transition:background .15s}
+.qf-btn:hover{background:#f8f9fa}
+.qf-btn:disabled{opacity:.5;cursor:not-allowed}
+.qf-btn-sm{padding:2px 8px;font-size:11px}
+.qf-btn-primary{background:#0d6efd;color:#fff;border-color:#0d6efd}
+.qf-btn-primary:hover{background:#0b5ed7}
+.qf-btn-resolve{background:#d1e7dd;color:#0f5132;border-color:#a3cfbb}
+.qf-btn-resolve:hover{background:#badbcc}
+.qf-btn-reply{background:#fff3cd;color:#664d03;border-color:#ffda6a}
+.qf-btn-reply:hover{background:#ffeeba}
+.qf-btn-approve{background:#28a745;color:#fff;border-color:#28a745}
+.qf-btn-approve:hover{background:#218838}
+.qf-btn-reject{background:#dc3545;color:#fff;border-color:#dc3545}
+.qf-btn-reject:hover{background:#c82333}
+.qf-add-comment-btn{width:100%;margin-bottom:10px;text-align:center;padding:8px}
+.qf-form-panel{background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:12px;margin-bottom:10px}
+.qf-form-group{margin-bottom:10px}
+.qf-form-group label{display:block;font-size:12px;font-weight:600;margin-bottom:3px}
+.qf-form-group input,.qf-form-group select,.qf-form-group textarea{width:100%;padding:5px 8px;border:1px solid #dee2e6;border-radius:4px;font-size:12px;box-sizing:border-box}
+.qf-form-actions{display:flex;gap:8px;margin-top:8px}
+.qf-required{color:#dc3545}
+.qf-anchor-preview{background:#fff3cd;border:1px solid #ffda6a;border-radius:4px;padding:6px;font-size:11px;margin-bottom:8px;color:#664d03}
+.qf-reply-form{margin-top:8px;padding-top:8px;border-top:1px solid #e9ecef}
+.qf-reply-form textarea{width:100%;padding:4px 8px;border:1px solid #dee2e6;border-radius:4px;font-size:12px;box-sizing:border-box;margin-bottom:4px}
+mark.qf-highlight{cursor:pointer;border-radius:2px;padding:0 1px}
+mark.qf-hl-blocker{background:rgba(220,53,69,.25);border-bottom:2px solid #dc3545}
+mark.qf-hl-suggestion{background:rgba(13,110,253,.15);border-bottom:2px solid #0d6efd}
+mark.qf-hl-question{background:rgba(255,193,7,.3);border-bottom:2px solid #ffc107}
+mark.qf-hl-resolved{background:rgba(108,117,125,.15);border-bottom:2px solid #adb5bd}
+mark.qf-highlight:hover{opacity:.75}
+.qf-selection-popover{position:absolute;z-index:9999;background:#212529;color:#fff;border-radius:4px;padding:4px 8px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.qf-selection-popover button{background:0 0;border:none;color:#fff;cursor:pointer;font-size:12px;padding:2px 4px}
+.qf-apo-gate{position:fixed;bottom:0;left:0;right:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;font-size:13px;box-shadow:0 -2px 8px rgba(0,0,0,.15)}
+.qf-gate-locked{background:#fff3cd;border-top:2px solid #ffc107;color:#664d03}
+.qf-gate-unlocked{background:#d1e7dd;border-top:2px solid #28a745;color:#0f5132}
+.qf-gate-status{display:flex;align-items:center;gap:8px;flex:1}
+.qf-gate-icon{font-size:16px}
+.qf-gate-actions{display:flex;gap:8px;align-items:center}
+.qf-empty-state{text-align:center;color:#6c757d;font-size:12px;padding:20px 10px}
+@media(max-width:1024px){.qf-layout{display:block}.qf-sidebar{position:fixed;top:0;right:-340px;width:320px;height:100vh;max-height:100vh;border-left:1px solid #dee2e6;border-radius:0;z-index:999;transition:right .3s ease;padding-top:50px}body.qf-sidebar-open .qf-sidebar{right:0}#qf-sidebar-toggle{display:block;position:fixed;bottom:70px;right:16px;z-index:1001;width:44px;height:44px;border-radius:50%;background:#0d6efd;color:#fff;border:none;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}}
+@media(min-width:1025px){#qf-sidebar-toggle{display:none}}
+</style>
+<script id="qf-comments-data" type="application/json">
+[
+#foreach($c in $allComments)
+#set($objNum = $c.getNumber())
+#set($aText = $c.getValue('anchorText'))
+#set($cType = $c.getValue('type'))
+#set($cStatus = $c.getValue('status'))
+{"id":"${objNum}","anchorText":"$!{escapetool.javascript($aText)}","type":"${cType}","status":"${cStatus}"}#if($foreach.hasNext),#end
+#end
+]
+</script>
+
+<div class="qf-layout">
+<div class="qf-doc-body" id="qf-doc-body"></div>
+<div class="qf-sidebar" id="qf-sidebar">
+
+<div class="qf-sidebar-header">
+<div class="qf-progress-label">Reviewers: ${doneReviewers.size()} / ${allReviewers.size()} Done</div>
+<div class="qf-progress-bar"><div class="qf-progress-fill" style="width:${progressPct}%;"></div></div>
+<div class="qf-progress-label">Comments: ${resolvedCount} / ${totalComments} Resolved</div>
+</div>
+
+<div class="qf-reviewer-list">
+#foreach($r in $allReviewers)
+#set($rUser = $r.getValue('reviewer'))
+#set($rName = $xwiki.getUserName($rUser, false))
+#set($rStatus = $r.getValue('status'))
+<div class="qf-reviewer-item">
+<span class="qf-avatar">${rName.substring(0,1).toUpperCase()}</span>
+<span class="qf-reviewer-name">$rName</span>
+<span class="qf-reviewer-badge qf-badge-${rStatus.toLowerCase()}">${rStatus}</span>
+</div>
+#end
+#if($isQM)
+<button class="qf-btn qf-btn-sm" onclick="qfShowAddReviewer()">+ Add Reviewer</button>
+#end
+</div>
+
+<div class="qf-tabs">
+<button class="qf-tab qf-tab-active" onclick="qfSetTab('open', this)">Open <span class="qf-tab-count">${openCount}</span></button>
+<button class="qf-tab" onclick="qfSetTab('resolved', this)">Resolved <span class="qf-tab-count">${resolvedCount}</span></button>
+<button class="qf-tab" onclick="qfSetTab('all', this)">All <span class="qf-tab-count">${totalComments}</span></button>
+</div>
+
+#if(!$isGuest)
+<button class="qf-btn qf-btn-primary qf-add-comment-btn" onclick="qfShowAddCommentForm()">+ Add Comment</button>
+#end
+
+#if(!$isGuest)
+<div class="qf-form-panel" id="qf-add-comment-form" style="display:none;">
+<form method="post" action="$xwiki.getURL('QualityFlow.SaveComment', 'view')">
+<input type="hidden" name="docRef" value="$currentDocRef"/>
+<input type="hidden" name="holderRef" value="$holderRef"/>
+<input type="hidden" name="returnUrl" value="$returnUrl"/>
+<input type="hidden" name="anchorText" id="qf-anchorText" value=""/>
+<input type="hidden" name="anchorOffset" id="qf-anchorOffset" value=""/>
+<input type="hidden" name="form_token" value="$!{services.csrf.token}"/>
+<div id="qf-anchor-preview" class="qf-anchor-preview" style="display:none;">Anchored to: <em id="qf-anchor-preview-text"></em></div>
+<div class="qf-form-group">
+<label>Type <span class="qf-required">*</span></label>
+<select name="type" required>
+<option value="">— Select —</option>
+<option value="Blocker">Blocker</option>
+<option value="Suggestion">Suggestion</option>
+<option value="Question">Question</option>
+</select>
+</div>
+<div class="qf-form-group">
+<label>Section</label>
+<input type="text" name="section" maxlength="255" placeholder="e.g. Section 2 — Authentication"/>
+</div>
+<div class="qf-form-group">
+<label>Comment <span class="qf-required">*</span></label>
+<textarea name="comment" maxlength="4000" rows="4" required placeholder="Describe your review finding..."></textarea>
+</div>
+<div class="qf-form-actions">
+<button type="submit" class="qf-btn qf-btn-primary">Submit</button>
+<button type="button" class="qf-btn" onclick="qfHideAddCommentForm()">Cancel</button>
+</div>
+</form>
+</div>
+#end
+
+<div class="qf-comment-list" id="qf-comment-list">
+<div class="qf-comment-group" data-tab-group="open">
+#if($openComments.isEmpty())
+<div class="qf-empty-state">No comments yet. Select text or click Add Comment to get started.</div>
+#else
+#foreach($c in $openComments)
+#set($objNum = $c.getNumber())
+#set($authorRef = $c.getValue('author'))
+#set($authorName = $xwiki.getUserName($authorRef, false))
+#set($authorInitial = $authorName.substring(0,1).toUpperCase())
+#set($cType = $c.getValue('type'))
+#set($cSection = $c.getValue('section'))
+#set($cText = $c.getValue('comment'))
+#set($cResponse = $c.getValue('response'))
+#set($cDate = $c.getValue('date'))
+#set($cAnchor = $c.getValue('anchorText'))
+<div class="qf-comment-card qf-card-open" id="qf-card-${objNum}">
+<div class="qf-card-header">
+<span class="qf-avatar">$authorInitial</span>
+<span class="qf-card-author">$authorName</span>
+<span class="qf-badge qf-badge-${cType.toLowerCase()}">$cType.toUpperCase()</span>
+#if($cAnchor && $cAnchor != '')
+<a class="qf-anchor-icon" href="#" onclick="qfScrollToHighlight('${objNum}'); return false;" title="Jump to highlighted text">⚓</a>
+#end
+</div>
+#if($cSection && $cSection != '')
+<div class="qf-card-section">📍 $cSection</div>
+#end
+<div class="qf-card-body">$cText</div>
+#if($cResponse && $cResponse != '')
+<div class="qf-card-response"><strong>Response:</strong> $cResponse</div>
+#end
+#if($canAct)
+<div class="qf-card-actions">
+<form method="post" action="$xwiki.getURL('QualityFlow.ResolveComment', 'view')" style="display:inline;">
+<input type="hidden" name="holderRef" value="$holderRef"/>
+<input type="hidden" name="objNum" value="$objNum"/>
+<input type="hidden" name="returnUrl" value="$returnUrl"/>
+<input type="hidden" name="form_token" value="$!{services.csrf.token}"/>
+<button type="submit" class="qf-btn qf-btn-resolve">✓ Resolve</button>
+</form>
+<button class="qf-btn qf-btn-reply" onclick="qfShowReplyForm('${objNum}')">↩ Reply</button>
+</div>
+<div class="qf-reply-form" id="qf-reply-${objNum}" style="display:none;">
+<form method="post" action="$xwiki.getURL('QualityFlow.UpdateResponse', 'view')">
+<input type="hidden" name="holderRef" value="$holderRef"/>
+<input type="hidden" name="objNum" value="$objNum"/>
+<input type="hidden" name="returnUrl" value="$returnUrl"/>
+<input type="hidden" name="form_token" value="$!{services.csrf.token}"/>
+<textarea name="response" maxlength="1000" rows="2" placeholder="Add a response..."></textarea>
+<button type="submit" class="qf-btn qf-btn-primary">Save</button>
+<button type="button" class="qf-btn" onclick="qfHideReplyForm('${objNum}')">Cancel</button>
+</form>
+</div>
+#end
+</div>
+#end
+#end
+</div>
+
+<div class="qf-comment-group" data-tab-group="resolved" style="display:none;">
+#if($resolvedComments.isEmpty())
+<div class="qf-empty-state">No resolved comments yet.</div>
+#else
+#foreach($c in $resolvedComments)
+#set($objNum = $c.getNumber())
+#set($authorRef = $c.getValue('author'))
+#set($authorName = $xwiki.getUserName($authorRef, false))
+#set($authorInitial = $authorName.substring(0,1).toUpperCase())
+#set($cType = $c.getValue('type'))
+#set($cText = $c.getValue('comment'))
+#set($cResponse = $c.getValue('response'))
+#set($resolvedByRef = $c.getValue('resolvedBy'))
+#set($resolvedByName = $xwiki.getUserName($resolvedByRef, false))
+<div class="qf-comment-card qf-card-resolved" id="qf-card-${objNum}">
+<div class="qf-card-header">
+<span class="qf-avatar qf-avatar-resolved">$authorInitial</span>
+<span class="qf-card-author">$authorName</span>
+<span class="qf-badge qf-badge-${cType.toLowerCase()} qf-badge-resolved">$cType.toUpperCase()</span>
+<span class="qf-resolved-label">✓ Resolved</span>
+</div>
+<div class="qf-card-body">$cText</div>
+#if($cResponse && $cResponse != '')
+<div class="qf-card-response"><strong>Response:</strong> $cResponse</div>
+#end
+<div class="qf-resolved-meta">Resolved by $resolvedByName</div>
+#if($canAct)
+<div class="qf-card-actions">
+<button class="qf-btn qf-btn-reply" onclick="qfShowReplyForm('${objNum}')">↩ Reply</button>
+</div>
+<div class="qf-reply-form" id="qf-reply-${objNum}" style="display:none;">
+<form method="post" action="$xwiki.getURL('QualityFlow.UpdateResponse', 'view')">
+<input type="hidden" name="holderRef" value="$holderRef"/>
+<input type="hidden" name="objNum" value="$objNum"/>
+<input type="hidden" name="returnUrl" value="$returnUrl"/>
+<input type="hidden" name="form_token" value="$!{services.csrf.token}"/>
+<textarea name="response" maxlength="1000" rows="2"></textarea>
+<button type="submit" class="qf-btn qf-btn-primary">Save</button>
+<button type="button" class="qf-btn" onclick="qfHideReplyForm('${objNum}')">Cancel</button>
+</form>
+</div>
+#end
+</div>
+#end
+#end
+</div>
+</div>
+
+</div>
+</div>
+
+<div class="qf-apo-gate #if($isGateLocked)qf-gate-locked#{else}qf-gate-unlocked#end" id="qf-apo-gate">
+<div class="qf-gate-status">
+#if($latestApproval && $latestApproval != false)
+#if($latestApproval.getValue('decision') == 'Approved')
+<span class="qf-gate-icon">✅</span><span>Approved by $xwiki.getUserName($latestApproval.getValue('author'), false)</span>
+#else
+<span class="qf-gate-icon">❌</span><span>Rejected by $xwiki.getUserName($latestApproval.getValue('author'), false) — $!{latestApproval.getValue('reason')}</span>
+#end
+#elseif($isGateLocked)
+<span class="qf-gate-icon">🔒</span><span>#if($openBlockers > 0)${openBlockers} blocker(s) must be resolved#end#if($openBlockers > 0 && $pendingCount > 0) — #end#if($pendingCount > 0)${pendingCount} review(s) pending#end</span>
+#else
+<span class="qf-gate-icon">🔓</span><span>All blockers resolved. All reviewers complete. Ready for approval.</span>
+#end
+</div>
+#if($isAPO && !$latestApproval)
+<div class="qf-gate-actions">
+<form method="post" action="$xwiki.getURL('QualityFlow.SaveApproval', 'view')" style="display:inline;">
+<input type="hidden" name="holderRef" value="$holderRef"/>
+<input type="hidden" name="docRef" value="$currentDocRef"/>
+<input type="hidden" name="decision" value="Approved"/>
+<input type="hidden" name="returnUrl" value="$returnUrl"/>
+<input type="hidden" name="form_token" value="$!{services.csrf.token}"/>
+<button type="submit" class="qf-btn qf-btn-approve" #if($isGateLocked)disabled#end>✓ Approve</button>
+</form>
+<button class="qf-btn qf-btn-reject" onclick="qfShowRejectForm()" #if($isGateLocked)disabled#end>✗ Reject</button>
+<div id="qf-reject-form" style="display:none;">
+<form method="post" action="$xwiki.getURL('QualityFlow.SaveApproval', 'view')">
+<input type="hidden" name="holderRef" value="$holderRef"/>
+<input type="hidden" name="docRef" value="$currentDocRef"/>
+<input type="hidden" name="decision" value="Rejected"/>
+<input type="hidden" name="returnUrl" value="$returnUrl"/>
+<input type="hidden" name="form_token" value="$!{services.csrf.token}"/>
+<textarea name="reason" maxlength="2000" rows="2" placeholder="Reason for rejection..." required></textarea>
+<button type="submit" class="qf-btn qf-btn-reject">Confirm Reject</button>
+<button type="button" class="qf-btn" onclick="qfHideRejectForm()">Cancel</button>
+</form>
+</div>
+</div>
+#end
+</div>
+{{/velocity}}
+{{/html}}

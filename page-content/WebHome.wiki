@@ -1,0 +1,105 @@
+{{groovy}}
+def resp = response
+resp.setContentType('text/html; charset=UTF-8')
+def writer = resp.getWriter()
+
+def html = """
+<div style="max-width:700px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+
+<div style="text-align:center;padding:24px 0 16px 0;border-bottom:2px solid #dee2e6;margin-bottom:24px;">
+<h1 style="font-size:26px;margin:0 0 6px 0;color:#212529;">QualityFlow Admin</h1>
+<p style="font-size:13px;color:#6c757d;margin:0;">Structured document review &middot; Inline highlighting &middot; APO approval gate</p>
+<p style="font-size:11px;color:#adb5bd;margin:4px 0 0 0;">v1.0.0 &middot; Mike Sawaya &middot; <a href="https://notropia.co" style="color:#0d6efd;">Notropia.co</a></p>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;">
+<a href="/bin/view/QualityFlow/EnableOnPage" style="display:block;padding:20px;background:#0d6efd;color:#fff;border-radius:8px;text-align:center;text-decoration:none;">
+<div style="font-size:24px;margin-bottom:6px;">&#128196;</div>
+<div style="font-size:14px;font-weight:600;">Enable on a Page</div>
+<div style="font-size:11px;opacity:0.8;margin-top:4px;">Add review sidebar to any document</div>
+</a>
+<a href="/bin/view/QualityFlow/CommentDashboard" style="display:block;padding:20px;background:#198754;color:#fff;border-radius:8px;text-align:center;text-decoration:none;">
+<div style="font-size:24px;margin-bottom:6px;">&#128202;</div>
+<div style="font-size:14px;font-weight:600;">Comment Dashboard</div>
+<div style="font-size:11px;opacity:0.8;margin-top:4px;">Cross-document review status</div>
+</a>
+<a href="/bin/view/QualityFlow/Admin" style="display:block;padding:20px;background:#6c757d;color:#fff;border-radius:8px;text-align:center;text-decoration:none;">
+<div style="font-size:24px;margin-bottom:6px;">&#9881;</div>
+<div style="font-size:14px;font-weight:600;">Admin &amp; Health</div>
+<div style="font-size:11px;opacity:0.8;margin-top:4px;">XObject counts, page inventory</div>
+</a>
+<a href="/bin/view/XWiki/QFReviewers" style="display:block;padding:20px;background:#fd7e14;color:#fff;border-radius:8px;text-align:center;text-decoration:none;">
+<div style="font-size:24px;margin-bottom:6px;">&#128101;</div>
+<div style="font-size:14px;font-weight:600;">Manage Groups</div>
+<div style="font-size:11px;opacity:0.8;margin-top:4px;">QFReviewers, QFQualityManagers, QFAPO</div>
+</a>
+</div>
+
+<h2 style="font-size:16px;border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-bottom:12px;">How It Works</h2>
+<div style="font-size:13px;line-height:1.8;margin-bottom:20px;">
+<p><strong>1.</strong> Go to <a href="/bin/view/QualityFlow/EnableOnPage">Enable on a Page</a> and type any document name &rarr; click Enable</p>
+<p><strong>2.</strong> Quality Manager assigns reviewers from the sidebar</p>
+<p><strong>3.</strong> Reviewers add comments (Blocker / Suggestion / Question), optionally anchored to text</p>
+<p><strong>4.</strong> Quality Manager resolves comments and marks reviewers Done</p>
+<p><strong>5.</strong> APO gives final approval once all blockers resolved</p>
+</div>
+
+<h2 style="font-size:16px;border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-bottom:12px;">Quick Reference</h2>
+<table style="width:100%;border-collapse:collapse;font-size:12px;">
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">Enable QualityFlow</td><td style="padding:6px;"><a href="/bin/view/QualityFlow/EnableOnPage">/QualityFlow/EnableOnPage</a></td></tr>
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">Dashboard</td><td style="padding:6px;"><a href="/bin/view/QualityFlow/CommentDashboard">/QualityFlow/CommentDashboard</a></td></tr>
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">Admin</td><td style="padding:6px;"><a href="/bin/view/QualityFlow/Admin">/QualityFlow/Admin</a></td></tr>
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">QFReviewers group</td><td style="padding:6px;"><a href="/bin/view/XWiki/QFReviewers">/XWiki/QFReviewers</a></td></tr>
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">QFQualityManagers group</td><td style="padding:6px;"><a href="/bin/view/XWiki/QFQualityManagers">/XWiki/QFQualityManagers</a></td></tr>
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">QFAPO group</td><td style="padding:6px;"><a href="/bin/view/XWiki/QFAPO">/XWiki/QFAPO</a></td></tr>
+</table>
+
+<h2 style="font-size:16px;border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-top:20px;margin-bottom:12px;">Roles</h2>
+<table style="width:100%;border-collapse:collapse;font-size:12px;">
+<tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;"><th style="padding:6px;text-align:left;">Group</th><th style="padding:6px;text-align:left;">Can do</th></tr>
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">QFReviewers</td><td style="padding:6px;">Add comments, Resolve, Reply</td></tr>
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">QFQualityManagers</td><td style="padding:6px;">All reviewer actions + Assign reviewers + Mark Done</td></tr>
+<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:6px;font-weight:600;">QFAPO</td><td style="padding:6px;">Approve or Reject documents (when gate unlocked)</td></tr>
+</table>
+
+<h2 style="font-size:16px;border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-top:20px;margin-bottom:12px;">Data &amp; Privacy</h2>
+<div style="font-size:12px;line-height:1.8;margin-bottom:20px;">
+<p><strong>Data stored:</strong> Usernames, comment text, response text, timestamps, document references.</p>
+<p><strong>Storage location:</strong> xWiki XObjects on <code>QualityFlow.Comments.*</code> holder pages within this xWiki instance.</p>
+<p><strong>Access control:</strong> Only users with View rights on the QualityFlow space can see comments. Write actions require membership in QFReviewers, QFQualityManagers, or QFAPO groups.</p>
+<p><strong>Data export:</strong> Use the CSV export button on the <a href="/bin/view/QualityFlow/CommentDashboard">Comment Dashboard</a>.</p>
+<p><strong>Data deletion:</strong> Contact your xWiki administrator to archive or delete comments via the Admin page.</p>
+<p><strong>External transmission:</strong> None. All data remains on-premise within this xWiki instance. No external APIs or third-party services are contacted.</p>
+</div>
+
+<h2 style="font-size:16px;border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-top:20px;margin-bottom:12px;">License</h2>
+<div style="font-size:12px;line-height:1.8;margin-bottom:20px;">
+<p>QualityFlow Comment Summary is released under the <strong>GNU Lesser General Public License v2.1 (LGPL-2.1)</strong>.</p>
+<p>You may freely use, modify, and distribute this plugin. Modifications to QualityFlow source pages must be shared under the same license. Integration with proprietary xWiki content does not require licensing that content under LGPL.</p>
+<p>Full license text: <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html" style="color:#0d6efd;">gnu.org/licenses/lgpl-2.1</a></p>
+</div>
+
+<h2 style="font-size:16px;border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-top:20px;margin-bottom:12px;">Upgrade Notes</h2>
+<div style="font-size:12px;line-height:1.8;margin-bottom:20px;">
+<p>The following pages may contain user customizations. Back up before upgrading:</p>
+<ul style="margin:4px 0;padding-left:20px;">
+<li>QualityFlow.WebHome</li>
+<li>QualityFlow.AddComment</li>
+<li>QualityFlow.DocumentCommentPanel</li>
+<li>QualityFlow.QFStyles</li>
+<li>QualityFlow.QFScripts</li>
+<li>QualityFlow.Admin</li>
+</ul>
+</div>
+
+<div style="margin-top:24px;padding:12px;background:#f8f9fa;border-radius:6px;font-size:11px;color:#6c757d;text-align:center;">
+QualityFlow Comment Summary v1.0.0 &copy; 2026 Mike Sawaya / Notropia.co<br/>
+Licensed under LGPL-2.1 &middot; xWiki 14.10+ &middot; No Java &middot; No JAR &middot; No restart required
+</div>
+</div>
+"""
+
+writer.print(html)
+writer.flush()
+xcontext.setFinished(true)
+{{/groovy}}

@@ -1,0 +1,132 @@
+= 1. Overview =
+This document defines the technical specification for the API Gateway service.
+
+= 2. Authentication =
+All requests must carry a valid JWT token. Token expiry is set to 3600 seconds.
+
+= 3. Rate Limiting =
+Rate limits are enforced per client ID using a token-bucket algorithm.
+
+{{html clean="false"}}
+<div id="qf-panel-container"></div>
+<div id="qf-popover" style="display:none;position:absolute;z-index:9999;background:#212529;color:#fff;border-radius:4px;padding:4px 8px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;font-size:12px;" onclick="qfOpenFormWithAnchor()">&#128172; Add Comment</div>
+<script>
+(function(){
+  // Load the sidebar panel
+  var path = window.location.pathname;
+  var match = path.match(/\/bin\/view\/(.+)/);
+  var docRef = match ? decodeURIComponent(match[1]).replace(/\/$/, '') : '';
+  if (!docRef.endsWith('WebHome')) docRef = docRef + '.WebHome';
+  docRef = docRef.replace(/\//g, '.');
+  var returnUrl = window.location.pathname;
+  var panelUrl = '/bin/view/QualityFlow/RenderPanel?docRef=' + encodeURIComponent(docRef) + '&returnUrl=' + encodeURIComponent(returnUrl);
+
+  fetch(panelUrl)
+    .then(function(r){return r.text();})
+    .then(function(html){
+      document.getElementById('qf-panel-container').innerHTML = html;
+      // After panel loads, inject highlights
+      injectHighlights();
+    });
+
+  // ── TEXT SELECTION POPOVER ─────────────────────────────────────────
+  var popover = document.getElementById('qf-popover');
+  var capturedText = '';
+  var contentArea = null;
+
+  document.addEventListener('mouseup', function(e) {
+    // Wait for content area to be available
+    if (!contentArea) contentArea = document.querySelector('.xcontent') || document.querySelector('#xwikicontent') || document.querySelector('.wiki-content') || document.body;
+    // Ignore clicks in the sidebar
+    if (e.target.closest && e.target.closest('#qf-panel-container')) return;
+
+    setTimeout(function(){
+      var sel = window.getSelection();
+      var text = sel ? sel.toString().trim() : '';
+      if (text.length < 3) { popover.style.display = 'none'; return; }
+
+      capturedText = text.substring(0, 500);
+      var rect = sel.getRangeAt(0).getBoundingClientRect();
+      popover.style.top = (window.scrollY + rect.bottom + 6) + 'px';
+      popover.style.left = (window.scrollX + rect.left) + 'px';
+      popover.style.display = 'block';
+    }, 10);
+  });
+
+  document.addEventListener('mousedown', function(e) {
+    if (!popover.contains(e.target)) popover.style.display = 'none';
+  });
+
+  // Open comment form with anchor text pre-filled
+  window.qfOpenFormWithAnchor = function() {
+    popover.style.display = 'none';
+    var form = document.getElementById('qf-add-comment-form');
+    if (form) form.style.display = 'block';
+    // Try to find/create a hidden anchorText field
+    var anchorInput = form ? form.querySelector('input[name="anchorText"]') : null;
+    if (!anchorInput && form) {
+      var f = form.querySelector('form');
+      anchorInput = document.createElement('input');
+      anchorInput.type = 'hidden';
+      anchorInput.name = 'anchorText';
+      f.appendChild(anchorInput);
+    }
+    if (anchorInput) anchorInput.value = capturedText;
+    // Show anchor preview
+    var preview = document.getElementById('qf-anchor-preview');
+    if (!preview && form) {
+      preview = document.createElement('div');
+      preview.id = 'qf-anchor-preview';
+      preview.style.cssText = 'background:#fff3cd;border:1px solid #ffda6a;border-radius:4px;padding:6px;font-size:11px;margin-bottom:8px;color:#664d03;';
+      form.querySelector('form').insertBefore(preview, form.querySelector('form').firstChild);
+    }
+    if (preview) {
+      preview.innerHTML = '&#9875; Anchored to: <em>"' + capturedText.substring(0,80) + (capturedText.length > 80 ? '...' : '') + '"</em>';
+      preview.style.display = 'block';
+    }
+    window.getSelection().removeAllRanges();
+  };
+
+  // ── HIGHLIGHT INJECTION ────────────────────────────────────────────
+  function injectHighlights() {
+    // Fetch comment data from the holder page to know which texts to highlight
+    fetch('/bin/view/QualityFlow/RenderHighlights?docRef=' + encodeURIComponent(docRef))
+      .then(function(r){return r.text();})
+      .then(function(json){
+        try {
+          var comments = JSON.parse(json);
+          if (!contentArea) contentArea = document.querySelector('.xcontent') || document.querySelector('#xwikicontent') || document.body;
+          comments.forEach(function(c){
+            if (!c.anchorText || c.anchorText.trim() === '') return;
+            var color = c.type === 'Blocker' ? 'rgba(220,53,69,.2)' : (c.type === 'Suggestion' ? 'rgba(13,110,253,.15)' : 'rgba(255,193,7,.25)');
+            if (c.status === 'Resolved') color = 'rgba(108,117,125,.15)';
+            wrapText(contentArea, c.anchorText, color, c.id);
+          });
+        } catch(e){}
+      }).catch(function(){});
+  }
+
+  function wrapText(container, searchText, bgColor, commentId) {
+    var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    var node;
+    while ((node = walker.nextNode())) {
+      var idx = node.nodeValue.indexOf(searchText);
+      if (idx === -1) continue;
+      var before = node.nodeValue.substring(0, idx);
+      var after = node.nodeValue.substring(idx + searchText.length);
+      var mark = document.createElement('mark');
+      mark.style.cssText = 'background:' + bgColor + ';cursor:pointer;border-radius:2px;padding:0 1px;';
+      mark.setAttribute('data-comment-id', commentId);
+      mark.textContent = searchText;
+      mark.onclick = function(){ var card = document.getElementById('qf-card-' + this.getAttribute('data-comment-id')); if(card) card.scrollIntoView({behavior:'smooth',block:'nearest'}); };
+      var parent = node.parentNode;
+      if (before) parent.insertBefore(document.createTextNode(before), node);
+      parent.insertBefore(mark, node);
+      if (after) parent.insertBefore(document.createTextNode(after), node);
+      parent.removeChild(node);
+      break;
+    }
+  }
+})();
+</script>
+{{/html}}

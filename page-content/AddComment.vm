@@ -1,0 +1,62 @@
+## QualityFlow.AddComment — Standalone comment form (fallback)
+#set($currentUser = $xcontext.user)
+#if($currentUser == 'XWiki.XWikiGuest')
+  #set($loginUrl = $xwiki.getURL('XWiki.XWikiLogin', 'login'))
+  $response.sendRedirect($loginUrl)
+#else
+
+#set($docRef = $request.getParameter('docRef'))
+#set($returnUrl = $request.getParameter('returnUrl'))
+#if(!$returnUrl || $returnUrl == '')
+  #set($returnUrl = $xwiki.getURL($docRef, 'view'))
+#end
+#set($qfError = $request.getParameter('qf_error'))
+
+{{html clean="false"}}
+<div style="max-width:600px; margin:20px auto; font-family:sans-serif;">
+  <h2>Add Comment</h2>
+  <p>Document: <strong>$docRef</strong></p>
+
+  #if($qfError && $qfError != '')
+    <div style="background:#f8d7da; border:1px solid #f1aeb5; padding:10px; border-radius:4px; margin-bottom:12px; color:#842029;">
+      $qfError
+    </div>
+  #end
+
+  <form method="post" action="$xwiki.getURL('QualityFlow.SaveComment', 'view')">
+    <input type="hidden" name="docRef" value="$!{docRef}"/>
+    <input type="hidden" name="holderRef" value="QualityFlow.Comments.${docRef.replaceAll('[^a-zA-Z0-9]', '')}"/>
+    <input type="hidden" name="returnUrl" value="$!{returnUrl}"/>
+    <input type="hidden" name="form_token" value="$!{services.csrf.token}"/>
+
+    <div style="margin-bottom:12px;">
+      <label style="display:block; font-weight:bold; margin-bottom:4px;">Type *</label>
+      <select name="type" required style="width:100%; padding:6px; border:1px solid #dee2e6; border-radius:4px;">
+        <option value="">— Select —</option>
+        <option value="Blocker">Blocker</option>
+        <option value="Suggestion">Suggestion</option>
+        <option value="Question">Question</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="display:block; font-weight:bold; margin-bottom:4px;">Section</label>
+      <input type="text" name="section" maxlength="255" placeholder="e.g. Section 2 — Authentication"
+             style="width:100%; padding:6px; border:1px solid #dee2e6; border-radius:4px;"/>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="display:block; font-weight:bold; margin-bottom:4px;">Comment *</label>
+      <textarea name="comment" maxlength="4000" rows="6" required
+                placeholder="Describe your review finding..."
+                style="width:100%; padding:6px; border:1px solid #dee2e6; border-radius:4px;"></textarea>
+    </div>
+
+    <button type="submit" style="background:#0d6efd; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+      Submit Comment
+    </button>
+  </form>
+</div>
+{{/html}}
+
+#end

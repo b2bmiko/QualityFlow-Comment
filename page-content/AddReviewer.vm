@@ -1,0 +1,68 @@
+## QualityFlow.AddReviewer — Assign reviewer form
+#set($currentUser = $xcontext.user)
+#if($currentUser == 'XWiki.XWikiGuest')
+  $response.sendRedirect($xwiki.getURL('XWiki.XWikiLogin', 'login'))
+#else
+
+#set($isQM = $xwiki.isAMemberOf('XWiki.QFQualityManagers', $currentUser))
+#if(!$isQM)
+
+{{html clean="false"}}
+<div style="max-width:600px; margin:20px auto; font-family:sans-serif;">
+  <div style="background:#f8d7da; border:1px solid #f1aeb5; padding:10px; border-radius:4px; color:#842029;">
+    Not authorized. Only Quality Managers can assign reviewers.
+  </div>
+</div>
+{{/html}}
+
+#else
+
+#set($docRef = $request.getParameter('docRef'))
+#set($holderName = $docRef.replaceAll('[^a-zA-Z0-9]', ''))
+#set($holderRef = "QualityFlow.Comments.${holderName}")
+#set($returnUrl = $request.getParameter('returnUrl'))
+#if(!$returnUrl || $returnUrl == '')
+  #set($returnUrl = $xwiki.getURL($docRef, 'view'))
+#end
+#set($qfSuccess = $request.getParameter('qf_success'))
+#set($qfError = $request.getParameter('qf_error'))
+
+{{html clean="false"}}
+<div style="max-width:600px; margin:20px auto; font-family:sans-serif;">
+  <h2>Assign Reviewer</h2>
+  <p>Document: <strong>$docRef</strong></p>
+
+  #if($qfSuccess == '1')
+    <div style="background:#d1e7dd; border:1px solid #a3cfbb; padding:10px; border-radius:4px; margin-bottom:12px; color:#0f5132;">
+      Reviewer assigned successfully.
+    </div>
+  #end
+
+  #if($qfError && $qfError != '')
+    <div style="background:#f8d7da; border:1px solid #f1aeb5; padding:10px; border-radius:4px; margin-bottom:12px; color:#842029;">
+      $qfError
+    </div>
+  #end
+
+  <form method="post" action="$xwiki.getURL('QualityFlow.SaveReviewer', 'view')">
+    <input type="hidden" name="holderRef" value="$holderRef"/>
+    <input type="hidden" name="docRef" value="$!{docRef}"/>
+    <input type="hidden" name="returnUrl" value="$!{returnUrl}"/>
+    <input type="hidden" name="form_token" value="$!{services.csrf.token}"/>
+
+    <div style="margin-bottom:12px;">
+      <label style="display:block; font-weight:bold; margin-bottom:4px;">Reviewer (user reference) *</label>
+      <input type="text" name="reviewer" required placeholder="XWiki.JohnDoe"
+             style="width:100%; padding:6px; border:1px solid #dee2e6; border-radius:4px;"/>
+      <small style="color:#6c757d;">Enter the full xWiki user reference, e.g. XWiki.JohnDoe</small>
+    </div>
+
+    <button type="submit" style="background:#0d6efd; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+      Assign Reviewer
+    </button>
+  </form>
+</div>
+{{/html}}
+
+#end
+#end

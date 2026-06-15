@@ -1,0 +1,79 @@
+{{groovy}}
+def resp = response
+resp.setContentType('text/html; charset=UTF-8')
+def writer = resp.getWriter()
+
+// Count all XObjects
+def commentCount = 0
+def reviewerCount = 0
+def approvalCount = 0
+try { commentCount = services.query.xwql("select count(obj) from Document doc, doc.object(QualityFlow.CommentClass) as obj").execute()[0] } catch(e){}
+try { reviewerCount = services.query.xwql("select count(obj) from Document doc, doc.object(QualityFlow.ReviewerClass) as obj").execute()[0] } catch(e){}
+try { approvalCount = services.query.xwql("select count(obj) from Document doc, doc.object(QualityFlow.ApprovalClass) as obj").execute()[0] } catch(e){}
+
+// Check XClass existence
+def commentClassExists = !xwiki.getDocument('QualityFlow.CommentClass').isNew()
+def reviewerClassExists = !xwiki.getDocument('QualityFlow.ReviewerClass').isNew()
+def approvalClassExists = !xwiki.getDocument('QualityFlow.ApprovalClass').isNew()
+
+def html = new StringBuilder()
+html.append("<a href=\"/bin/view/QualityFlow/\" style=\"display:inline-block;margin-bottom:12px;font-size:12px;color:#0d6efd;text-decoration:none;\">&larr; Back to QualityFlow Home</a>")
+html.append("<h1 style=\"font-size:20px;margin-bottom:4px;\">⚙️ QualityFlow Admin</h1>")
+html.append("<p style=\"font-size:11px;color:#adb5bd;margin:0 0 16px 0;\">v1.0.0 &middot; LGPL-2.1</p>")
+
+// Counts
+html.append("<div style=\"display:flex;gap:12px;margin-bottom:20px;\">")
+html.append("<div style=\"flex:1;padding:16px;background:#f8f9fa;border-radius:6px;text-align:center;border:1px solid #dee2e6;\"><div style=\"font-size:24px;font-weight:700;\">${commentCount}</div><div style=\"font-size:12px;color:#6c757d;\">Total Comments</div></div>")
+html.append("<div style=\"flex:1;padding:16px;background:#f8f9fa;border-radius:6px;text-align:center;border:1px solid #dee2e6;\"><div style=\"font-size:24px;font-weight:700;\">${reviewerCount}</div><div style=\"font-size:12px;color:#6c757d;\">Reviewer Records</div></div>")
+html.append("<div style=\"flex:1;padding:16px;background:#f8f9fa;border-radius:6px;text-align:center;border:1px solid #dee2e6;\"><div style=\"font-size:24px;font-weight:700;\">${approvalCount}</div><div style=\"font-size:12px;color:#6c757d;\">Approvals</div></div>")
+html.append("</div>")
+
+// Health checks
+html.append("<h2 style=\"font-size:16px;margin-bottom:8px;\">Health Checks</h2>")
+if (commentClassExists && reviewerClassExists && approvalClassExists) {
+  html.append("<div style=\"padding:10px;background:#d1e7dd;border-radius:4px;color:#0f5132;margin-bottom:8px;\">✅ All XClasses are present. Plugin is healthy.</div>")
+} else {
+  if (!commentClassExists) html.append("<div style=\"padding:10px;background:#f8d7da;border-radius:4px;color:#842029;margin-bottom:8px;\">⚠️ QualityFlow.CommentClass not found</div>")
+  if (!reviewerClassExists) html.append("<div style=\"padding:10px;background:#f8d7da;border-radius:4px;color:#842029;margin-bottom:8px;\">⚠️ QualityFlow.ReviewerClass not found</div>")
+  if (!approvalClassExists) html.append("<div style=\"padding:10px;background:#f8d7da;border-radius:4px;color:#842029;margin-bottom:8px;\">⚠️ QualityFlow.ApprovalClass not found</div>")
+}
+
+// Quick links
+html.append("<h2 style=\"font-size:16px;margin-top:20px;margin-bottom:8px;\">Quick Links</h2>")
+html.append("<ul style=\"font-size:13px;\">")
+html.append("<li><a href=\"/bin/view/QualityFlow/CommentDashboard\">📊 Comment Dashboard</a></li>")
+html.append("<li><a href=\"/bin/view/QualityFlow/\">🏠 QualityFlow Home</a></li>")
+html.append("<li><a href=\"/bin/edit/QualityFlow/CommentClass?editor=class\">📋 CommentClass</a></li>")
+html.append("<li><a href=\"/bin/edit/QualityFlow/ReviewerClass?editor=class\">📋 ReviewerClass</a></li>")
+html.append("<li><a href=\"/bin/edit/QualityFlow/ApprovalClass?editor=class\">📋 ApprovalClass</a></li>")
+html.append("</ul>")
+
+// Page inventory
+html.append("<h2 style=\"font-size:16px;margin-top:20px;margin-bottom:8px;\">Page Inventory</h2>")
+html.append("<table style=\"width:100%;border-collapse:collapse;font-size:12px;\"><thead><tr style=\"background:#f8f9fa;border-bottom:2px solid #dee2e6;\"><th style=\"padding:6px;text-align:left;\">Page</th><th style=\"padding:6px;text-align:left;\">Purpose</th></tr></thead><tbody>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">RenderPanel</td><td style=\"padding:6px;\">Dynamic sidebar renderer (AJAX)</td></tr>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">SaveComment</td><td style=\"padding:6px;\">Handles new comment POST</td></tr>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">ResolveComment</td><td style=\"padding:6px;\">Handles resolve action</td></tr>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">UpdateResponse</td><td style=\"padding:6px;\">Handles reply POST</td></tr>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">SaveReviewer</td><td style=\"padding:6px;\">Handles reviewer assignment</td></tr>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">MarkReviewerDone</td><td style=\"padding:6px;\">Marks reviewer as Done</td></tr>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">SaveApproval</td><td style=\"padding:6px;\">Handles APO approve/reject</td></tr>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">CommentDashboard</td><td style=\"padding:6px;\">Cross-document dashboard</td></tr>")
+html.append("<tr style=\"border-bottom:1px solid #dee2e6;\"><td style=\"padding:6px;\">Admin</td><td style=\"padding:6px;\">This page — health check</td></tr>")
+html.append("</tbody></table>")
+
+// How to use
+html.append("<h2 style=\"font-size:16px;margin-top:20px;margin-bottom:8px;\">How to Enable on a Document</h2>")
+html.append("<div style=\"padding:10px;background:#f8f9fa;border-radius:4px;font-size:12px;color:#333;\">")
+html.append("<p>Add this snippet at the end of any document page (wiki editor):</p>")
+html.append("<code>{{html clean=&quot;false&quot;}}</code><br/>")
+html.append("<code>&lt;div id=&quot;qf-panel-container&quot;&gt;&lt;/div&gt;</code><br/>")
+html.append("<code>&lt;script src=&quot;/bin/view/QualityFlow/RenderPanel?...&quot;&gt;&lt;/script&gt;</code><br/>")
+html.append("<code>{{/html}}</code><br/><br/>")
+html.append("<p>See <a href=\"/bin/view/QualityFlow/\">QualityFlow WebHome</a> for full installation instructions.</p>")
+html.append("</div>")
+
+writer.print(html.toString())
+writer.flush()
+xcontext.setFinished(true)
+{{/groovy}}

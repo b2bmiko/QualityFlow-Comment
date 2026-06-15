@@ -1,0 +1,17 @@
+{{html clean="false"}}
+<div id="qf-panel-container"></div>
+<script>
+(function(){
+  var path = window.location.pathname;
+  var match = path.match(/\/bin\/view\/(.+)/);
+  var docRef = match ? decodeURIComponent(match[1]).replace(/\/$/, '') + '.WebHome' : '';
+  docRef = docRef.replace(/\/WebHome\.WebHome$/, '.WebHome');
+  if (docRef.endsWith('/')) docRef = docRef.slice(0,-1);
+  docRef = docRef.replace(/\//g, '.');
+  var returnUrl = window.location.pathname;
+  fetch('/bin/view/QualityFlow/RenderPanel?docRef=' + encodeURIComponent(docRef) + '&returnUrl=' + encodeURIComponent(returnUrl))
+    .then(function(r){return r.text();})
+    .then(function(html){document.getElementById('qf-panel-container').innerHTML=html;});
+})();
+</script>
+{{/html}}

@@ -1,0 +1,193 @@
+{{groovy}}
+def resp = response
+def exportDoc = request.getParameter('exportDoc') ?: ''
+
+// If export requested, output CSV
+if (exportDoc) {
+  def holderDoc = xwiki.getDocument(exportDoc)
+  def comments = holderDoc.getObjects('QualityFlow.CommentClass') ?: []
+  def approvals = holderDoc.getObjects('QualityFlow.ApprovalClass') ?: []
+  resp.setContentType('text/csv; charset=UTF-8')
+  resp.setHeader('Content-Disposition', 'attachment; filename="qualityflow-comments.csv"')
+  def csvWriter = resp.getWriter()
+  csvWriter.println('Document,Type,Status,Section,Comment,Author,Date,Response,Resolved By')
+  comments.each { c ->
+    def docRef = c.getValue('document') ?: ''
+    def cType = c.getValue('type') ?: ''
+    def cStatus = c.getValue('status') ?: ''
+    def cSection = (c.getValue('section') ?: '').replace('"', '""')
+    def cText = (c.getValue('comment') ?: '').replace('"', '""').replace('\n', ' ')
+    def cAuthor = xwiki.getUserName(c.getValue('author'), false) ?: ''
+    def cDate = c.getValue('date') ? new java.text.SimpleDateFormat('yyyy-MM-dd HH:mm').format(c.getValue('date')) : ''
+    def cResponse = (c.getValue('response') ?: '').replace('"', '""').replace('\n', ' ')
+    def resolvedBy = xwiki.getUserName(c.getValue('resolvedBy'), false) ?: ''
+    csvWriter.println("\"${docRef}\",\"${cType}\",\"${cStatus}\",\"${cSection}\",\"${cText}\",\"${cAuthor}\",\"${cDate}\",\"${cResponse}\",\"${resolvedBy}\"")
+  }
+  if (approvals) {
+    csvWriter.println('')
+    csvWriter.println('--- APPROVAL HISTORY ---')
+    csvWriter.println('Decision,APO,Date,Comment')
+    approvals.each { a ->
+      def aDecision = a.getValue('decision') ?: ''
+      def aAuthor = xwiki.getUserName(a.getValue('author'), false) ?: ''
+      def aDate = a.getValue('date') ? new java.text.SimpleDateFormat('yyyy-MM-dd HH:mm').format(a.getValue('date')) : ''
+      def aReason = (a.getValue('reason') ?: '').replace('"', '""').replace('\n', ' ')
+      csvWriter.println("\"${aDecision}\",\"${aAuthor}\",\"${aDate}\",\"${aReason}\"")
+    }
+  }
+  csvWriter.flush()
+  xcontext.setFinished(true)
+  return
+}
+
+resp.setContentType('text/html; charset=UTF-8')
+def writer = resp.getWriter()
+
+// APO check for dashboard approve/reject buttons
+def currentUser = xcontext.userReference?.toString() ?: ''
+def isGuest = currentUser.contains('XWikiGuest') || currentUser == ''
+def isAPO = false
+if (!isGuest) {
+  try { isAPO = xwiki.getUser(currentUser).isUserInGroup('XWiki.QFAPO') } catch(e){}
+}
+def approvalUrl = xwiki.getURL('QualityFlow.SaveApproval', 'view')
+def dashboardUrl = xwiki.getURL('QualityFlow.CommentDashboard', 'view')
+
+def query = services.query.xwql(
+  "select distinct doc.fullName from Document doc, doc.object(QualityFlow.CommentClass) as c"
+).execute()
+
+def rows = []
+query.each { holderFullName ->
+  def holderDoc = xwiki.getDocument(holderFullName)
+  def comments  = holderDoc.getObjects('QualityFlow.CommentClass') ?: []
+  def reviewers = holderDoc.getObjects('QualityFlow.ReviewerClass') ?: []
+  def approvals = holderDoc.getObjects('QualityFlow.ApprovalClass') ?: []
+
+  def total      = comments.size()
+  def openCount  = comments.count { it.getValue('status') == 'Open' }
+  def blockers   = comments.count { it.getValue('type') == 'Blocker' && it.getValue('status') == 'Open' }
+  def suggestions= comments.count { it.getValue('type') == 'Suggestion' }
+  def questions  = comments.count { it.getValue('type') == 'Question' }
+  def reviewerTotal  = reviewers.size()
+  def reviewersDone  = reviewers.count { it.getValue('status') == 'Done' }
+  def pendingCount   = reviewers.count { it.getValue('status') == 'Pending' }
+
+  def latestApproval = approvals ? approvals.last() : null
+  def statusLabel
+  if (blockers > 0) { statusLabel = 'Blocked' }
+  else if (openCount > 0 || pendingCount > 0) { statusLabel = 'In Review' }
+  else if (latestApproval) { statusLabel = latestApproval.getValue('decision') }
+  else { statusLabel = 'Ready' }
+
+  def docRef = comments[0]?.getValue('document') ?: holderFullName
+
+  rows.add([
+    docRef: docRef,
+    holderRef: holderFullName,
+    total: total,
+    open: openCount,
+    blockers: blockers,
+    suggestions: suggestions,
+    questions: questions,
+    reviewerTotal: reviewerTotal,
+    reviewersDone: reviewersDone,
+    statusLabel: statusLabel,
+    comments: comments
+  ])
+}
+
+def html = new StringBuilder()
+// Helper: XSS escape
+def esc = { str -> str?.replace('&','&amp;')?.replace('<','&lt;')?.replace('>','&gt;')?.replace('"','&quot;')?.replace("'",'&#39;') ?: '' }
+html.append('<div style="font-family:-apple-system,sans-serif;font-size:14px;">')
+html.append('<a href="/bin/view/QualityFlow/" style="display:inline-block;margin-bottom:12px;font-size:13px;color:#0d6efd;text-decoration:none;">&larr; Back to QualityFlow Home</a>')
+html.append('<h1 style="font-size:22px;margin-bottom:16px;">&#128202; Comment Dashboard</h1>')
+
+if (rows.isEmpty()) {
+  html.append('<div style="padding:20px;text-align:center;color:#6c757d;">No comments have been submitted yet.</div>')
+} else {
+  def totalDocs = rows.size()
+  def blockedDocs = rows.count { it.statusLabel == 'Blocked' }
+  def inReviewDocs = rows.count { it.statusLabel == 'In Review' }
+  def readyDocs = rows.count { it.statusLabel == 'Ready' || it.statusLabel == 'Approved' }
+
+  html.append('<div style="display:flex;gap:12px;margin-bottom:20px;">')
+  html.append('<div style="flex:1;padding:14px;background:#f8f9fa;border-radius:6px;text-align:center;"><div style="font-size:22px;font-weight:700;">' + totalDocs + '</div><div style="font-size:12px;color:#6c757d;">Documents</div></div>')
+  html.append('<div style="flex:1;padding:14px;background:#f8d7da;border-radius:6px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#842029;">' + blockedDocs + '</div><div style="font-size:12px;color:#842029;">Blocked</div></div>')
+  html.append('<div style="flex:1;padding:14px;background:#fff3cd;border-radius:6px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#664d03;">' + inReviewDocs + '</div><div style="font-size:12px;color:#664d03;">In Review</div></div>')
+  html.append('<div style="flex:1;padding:14px;background:#d1e7dd;border-radius:6px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#0f5132;">' + readyDocs + '</div><div style="font-size:12px;color:#0f5132;">Ready/Approved</div></div>')
+  html.append('</div>')
+
+  // Summary table
+  html.append('<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:30px;">')
+  html.append('<thead><tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;"><th style="padding:8px;text-align:left;">Document</th><th style="padding:8px;text-align:center;">Total</th><th style="padding:8px;text-align:center;">Open</th><th style="padding:8px;text-align:center;">Blockers</th><th style="padding:8px;text-align:center;">Reviewers</th>')
+  if (isAPO) { html.append('<th style="padding:8px;text-align:center;">Action</th>') }
+  html.append('<th style="padding:8px;text-align:center;">Status</th>')
+  html.append('</tr></thead>')
+  html.append('<tbody>')
+  rows.each { row ->
+    def statusStyle = row.statusLabel == 'Blocked' ? 'background:#f8d7da;color:#842029' : (row.statusLabel == 'In Review' ? 'background:#fff3cd;color:#664d03' : 'background:#d1e7dd;color:#0f5132')
+    html.append('<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:8px;"><a href="/bin/view/' + row.docRef.replace('.', '/') + '" style="color:#0d6efd;text-decoration:none;">' + esc(row.docRef) + '</a></td><td style="padding:8px;text-align:center;">' + row.total + '</td><td style="padding:8px;text-align:center;">' + row.open + '</td><td style="padding:8px;text-align:center;font-weight:700;color:#842029;">' + row.blockers + '</td><td style="padding:8px;text-align:center;">' + row.reviewersDone + '/' + row.reviewerTotal + '</td>')
+    if (isAPO && (row.statusLabel == 'Ready' || row.statusLabel == 'Approved')) {
+      html.append('<td style="padding:8px;text-align:center;"><button onclick="var el=document.getElementById(\'qf-approve-' + row.holderRef.hashCode().abs() + '\');el.style.display=el.style.display==\'none\'?\'block\':\'none\'" style="padding:3px 8px;border-radius:4px;border:1px solid #28a745;background:#28a745;color:#fff;cursor:pointer;font-size:11px;margin-right:4px;">&#10003;</button><button onclick="var el=document.getElementById(\'qf-reject-' + row.holderRef.hashCode().abs() + '\');el.style.display=el.style.display==\'none\'?\'block\':\'none\'" style="padding:3px 8px;border-radius:4px;border:1px solid #dc3545;background:#dc3545;color:#fff;cursor:pointer;font-size:11px;">&#10007;</button></td>')
+    } else if (isAPO) {
+      html.append('<td style="padding:8px;text-align:center;font-size:11px;color:#adb5bd;">&mdash;</td>')
+    }
+    html.append('<td style="padding:8px;text-align:center;"><span style="padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;' + statusStyle + '">' + row.statusLabel + '</span></td>')
+    html.append('</tr>')
+    if (isAPO && (row.statusLabel == 'Ready' || row.statusLabel == 'Approved')) {
+      html.append('<tr id="qf-approve-' + row.holderRef.hashCode().abs() + '" style="display:none;"><td colspan="7" style="padding:8px;background:#d1e7dd;"><form method="post" action="' + approvalUrl + '" style="display:flex;gap:8px;align-items:center;"><input type="hidden" name="holderRef" value="' + row.holderRef + '"/><input type="hidden" name="docRef" value="' + row.docRef + '"/><input type="hidden" name="decision" value="Approved"/><input type="hidden" name="returnUrl" value="' + dashboardUrl + '"/><input type="text" name="reason" placeholder="Approval comment (optional)..." style="flex:1;padding:5px 8px;border:1px solid #a3cfbb;border-radius:4px;font-size:12px;"/><button type="submit" style="padding:5px 12px;border-radius:4px;background:#28a745;color:#fff;border:none;cursor:pointer;font-size:12px;">Approve</button></form></td></tr>')
+      html.append('<tr id="qf-reject-' + row.holderRef.hashCode().abs() + '" style="display:none;"><td colspan="7" style="padding:8px;background:#f8f9fa;"><form method="post" action="' + approvalUrl + '" style="display:flex;gap:8px;align-items:center;"><input type="hidden" name="holderRef" value="' + row.holderRef + '"/><input type="hidden" name="docRef" value="' + row.docRef + '"/><input type="hidden" name="decision" value="Rejected"/><input type="hidden" name="returnUrl" value="' + dashboardUrl + '"/><input type="text" name="reason" required placeholder="Reason for rejection..." style="flex:1;padding:5px 8px;border:1px solid #dee2e6;border-radius:4px;font-size:12px;"/><button type="submit" style="padding:5px 12px;border-radius:4px;background:#dc3545;color:#fff;border:none;cursor:pointer;font-size:12px;">Reject</button></form></td></tr>')
+    }
+  }
+  html.append('</tbody></table>')
+
+  // Detailed comments grouped by document
+  html.append('<h2 style="font-size:18px;margin-bottom:12px;border-bottom:1px solid #dee2e6;padding-bottom:6px;">All Comments by Document</h2>')
+
+  rows.each { row ->
+    html.append('<div style="margin-bottom:24px;border:1px solid #dee2e6;border-radius:6px;overflow:hidden;">')
+    html.append('<div style="display:flex;justify-content:space-between;align-items:center;background:#f8f9fa;padding:10px 12px;border-bottom:1px solid #dee2e6;">')
+    html.append('<strong style="font-size:14px;"><a href="/bin/view/' + row.docRef.replace('.', '/') + '" style="color:#212529;text-decoration:none;">' + esc(row.docRef) + '</a></strong>')
+    html.append('<a href="' + dashboardUrl + '?exportDoc=' + java.net.URLEncoder.encode(row.holderRef, 'UTF-8') + '" style="font-size:12px;padding:4px 10px;border-radius:4px;background:#0d6efd;color:#fff;text-decoration:none;">&#128229; Export CSV</a>')
+    html.append('</div>')
+    html.append('<table style="width:100%;border-collapse:collapse;font-size:13px;">')
+    html.append('<thead><tr style="border-bottom:1px solid #e9ecef;"><th style="padding:6px 10px;text-align:left;">Comment</th><th style="padding:6px 10px;text-align:center;">Type</th><th style="padding:6px 10px;text-align:center;">Status</th><th style="padding:6px 10px;text-align:left;">Author</th><th style="padding:6px 10px;text-align:center;">Date</th><th style="padding:6px 10px;text-align:center;">Age</th></tr></thead>')
+    html.append('<tbody>')
+    row.comments.each { c ->
+      def cType = esc(c.getValue('type') ?: '')
+      def cStatus = esc(c.getValue('status') ?: '')
+      def cText = esc(c.getValue('comment') ?: '')
+      def cAuthor = esc(xwiki.getUserName(c.getValue('author'), false) ?: 'Unknown')
+      def cDate = c.getValue('date')
+      def dateStr = cDate ? new java.text.SimpleDateFormat('yyyy-MM-dd HH:mm').format(cDate) : ''
+      def ageStr = ''
+      if (cDate) {
+        def diffMin = (int)((System.currentTimeMillis() - cDate.getTime()) / 60000)
+        if (diffMin < 60) ageStr = diffMin + 'm'
+        else if (diffMin < 1440) ageStr = (int)(diffMin/60) + 'h'
+        else ageStr = (int)(diffMin/1440) + 'd'
+      }
+      def truncText = cText.length() > 80 ? cText.substring(0, 80) + '...' : cText
+      def typeBg = cType == 'Blocker' ? 'background:#f8d7da;color:#842029' : (cType == 'Suggestion' ? 'background:#cfe2ff;color:#084298' : 'background:#fff3cd;color:#664d03')
+      def statusBg = cStatus == 'Open' ? 'background:#fff3cd;color:#664d03' : 'background:#d1e7dd;color:#0f5132'
+
+      html.append('<tr style="border-bottom:1px solid #e9ecef;">')
+      html.append('<td style="padding:6px 10px;font-size:12px;">' + truncText + '</td>')
+      html.append('<td style="padding:6px 10px;text-align:center;"><span style="padding:2px 6px;border-radius:3px;font-size:11px;font-weight:700;' + typeBg + '">' + cType + '</span></td>')
+      html.append('<td style="padding:6px 10px;text-align:center;"><span style="padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600;' + statusBg + '">' + cStatus + '</span></td>')
+      html.append('<td style="padding:6px 10px;font-size:12px;">' + cAuthor + '</td>')
+      html.append('<td style="padding:6px 10px;text-align:center;font-size:12px;color:#6c757d;">' + dateStr + '</td>')
+      html.append('<td style="padding:6px 10px;text-align:center;font-size:12px;color:#6c757d;">' + ageStr + ' ago</td>')
+      html.append('</tr>')
+    }
+    html.append('</tbody></table></div>')
+  }
+}
+
+html.append('</div>')
+writer.print(html.toString())
+writer.flush()
+xcontext.setFinished(true)
+{{/groovy}}
