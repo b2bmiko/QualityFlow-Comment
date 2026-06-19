@@ -110,10 +110,10 @@ The gate bar at the bottom of each document page is a **status indicator only** 
 | 6 | Mike (QM) | Resolves both comments | Gate recalculates |
 | 7 | Mike (QM) | Marks Sara as "Done" | Reviewer progress: 1/1 Done |
 | 8 | System | Gate unlocks | 🔓 "Ready for approval" |
-| 9 | Kiro (APO) | Clicks ✓ Approve on Dashboard | Status → Approved ✅ |
+| 9 | Miko (APO) | Clicks ✓ Approve on Dashboard | Status → Approved ✅ |
 | 10 | Sara (Reviewer) | Later adds new Blocker | Gate re-locks 🔒, overrides approval |
 | 11 | Mike (QM) | Resolves new Blocker | Gate unlocks again |
-| 12 | Kiro (APO) | Re-approves | Status → Approved ✅ |
+| 12 | Miko (APO) | Re-approves | Status → Approved ✅ |
 
 ---
 
@@ -139,7 +139,7 @@ The gate bar at the bottom of each document page is a **status indicator only** 
 - **Actions:** Everything a reviewer can do + assign reviewers + mark done + enable QualityFlow
 - **Cannot:** Approve/reject documents
 
-### APO (Kiro)
+### APO (Miko)
 - **Primary view:** Comment Dashboard (for batch approval)
 - **Actions:** Approve or reject documents (from Dashboard only — with optional comment)
 - **Cannot:** Resolve comments, reply, assign reviewers, mark done

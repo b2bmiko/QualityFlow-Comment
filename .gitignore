@@ -1,2 +1,10 @@
 .DS_Store
 *.DS_Store
+
+# IDE and tool config
+.kiro/
+.kiro-new/
+.vscode/
+
+# Debug screenshots (not relevant to project)
+debugging/
