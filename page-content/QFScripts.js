@@ -71,11 +71,17 @@
   }
 
   // ── TEXT SELECTION POPOVER ─────────────────────────────────────────
+  // NOTE: The selection popover is handled by EmbedSnippet.wiki on target pages.
+  // QFScripts only manages the popover on pages that use the full qf-layout
+  // (i.e., pages that DON'T have the EmbedSnippet injected).
   var popover = null;
   var capturedAnchorText = '';
   var capturedAnchorOffset = 0;
 
   function createPopover() {
+    // If EmbedSnippet's popover already exists, don't create a duplicate
+    if (document.getElementById('qf-popover')) return;
+
     popover = document.createElement('div');
     popover.id = 'qf-selection-popover';
     popover.className = 'qf-selection-popover';
@@ -89,6 +95,10 @@
   }
 
   function onMouseUp(e) {
+    // If EmbedSnippet popover handles it, skip
+    if (document.getElementById('qf-popover')) return;
+    if (!popover) return;
+
     // Ignore clicks inside sidebar
     if (e.target.closest && e.target.closest('#qf-sidebar')) return;
 
