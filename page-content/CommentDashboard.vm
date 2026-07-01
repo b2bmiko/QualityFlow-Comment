@@ -100,9 +100,40 @@ query.each { holderFullName ->
 def html = new StringBuilder()
 // Helper: XSS escape
 def esc = { str -> str?.replace('&','&amp;')?.replace('<','&lt;')?.replace('>','&gt;')?.replace('"','&quot;')?.replace("'",'&#39;') ?: '' }
+// QM check for archive button
+def isQM = false
+if (!isGuest) {
+  try { isQM = xwiki.getUser(currentUser).isUserInGroup('XWiki.QFQualityManagers') } catch(e){}
+}
+def archiveAllUrl = xwiki.getURL('QualityFlow.ArchiveAll', 'view')
+def csrfToken = services.csrf.getToken()
+
 html.append('<div style="font-family:-apple-system,sans-serif;font-size:14px;">')
-html.append('<a href="/bin/view/QualityFlow/" style="display:inline-block;margin-bottom:12px;font-size:13px;color:#0d6efd;text-decoration:none;">&larr; Back to QualityFlow Home</a>')
-html.append('<h1 style="font-size:22px;margin-bottom:16px;">&#128202; Comment Dashboard</h1>')
+
+// Success/error banners
+def qfSuccess = request.getParameter('qf_success') ?: ''
+def qfError = request.getParameter('qf_error') ?: ''
+def qfInfo = request.getParameter('qf_info') ?: ''
+if (qfSuccess) {
+  html.append('<div style="padding:10px 14px;background:#d1e7dd;border:1px solid #a3cfbb;border-radius:6px;margin-bottom:12px;font-size:13px;color:#0f5132;">&#10003; ' + (qfInfo ?: 'Operation successful.') + '</div>')
+}
+if (qfError) {
+  html.append('<div style="padding:10px 14px;background:#f8d7da;border:1px solid #f1aeb5;border-radius:6px;margin-bottom:12px;font-size:13px;color:#842029;">&#10007; ' + qfError + '</div>')
+}
+
+html.append('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">')
+html.append('<div><a href="/bin/view/QualityFlow/" style="display:inline-block;margin-bottom:4px;font-size:13px;color:#0d6efd;text-decoration:none;">&larr; Back to QualityFlow Home</a>')
+html.append('<h1 style="font-size:22px;margin:0;">&#128202; Comment Dashboard</h1></div>')
+html.append('<div style="display:flex;gap:8px;align-items:center;">')
+html.append('<a href="/bin/view/QualityFlow/ArchiveDashboard" style="font-size:12px;padding:6px 12px;border-radius:4px;background:#6c757d;color:#fff;text-decoration:none;">&#128451; View Archives</a>')
+if (isQM) {
+  html.append('<form method="post" action="' + archiveAllUrl + '" style="margin:0;" onsubmit="return confirm(\'Archive ALL active comments? This moves everything to the archive and clears the dashboard. This cannot be undone.\');">')
+  html.append('<input type="hidden" name="form_token" value="' + csrfToken + '"/>')
+  html.append('<input type="hidden" name="returnUrl" value="' + dashboardUrl + '"/>')
+  html.append('<button type="submit" style="padding:6px 12px;border-radius:4px;background:#fd7e14;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;">&#128230; Archive All</button>')
+  html.append('</form>')
+}
+html.append('</div></div>')
 
 if (rows.isEmpty()) {
   html.append('<div style="padding:20px;text-align:center;color:#6c757d;">No comments have been submitted yet.</div>')

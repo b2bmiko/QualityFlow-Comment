@@ -19,6 +19,8 @@ All data stays on-premise. No external APIs or third-party services are contacte
 - Reviewer assignment and "Mark Done" tracking
 - APO approval/rejection gate (unlocks when all blockers are resolved)
 - Cross-document Comment Dashboard with CSV export
+- Archive system with bulk "Archive All" to start fresh review cycles
+- Archive Dashboard with Word and PDF/HTML export of past cycles
 - Admin health-check page with XObject counts
 - One-click enable/disable via URL paste
 
@@ -62,6 +64,7 @@ All data stays on-premise. No external APIs or third-party services are contacte
 3. Reviewers add comments (Blocker / Suggestion / Question), optionally anchored to text
 4. Quality Manager resolves comments and marks reviewers Done
 5. APO gives final approval once all blockers are resolved
+6. Quality Manager archives the cycle (Archive All) to start a new review phase
 
 ## Roles
 
@@ -87,6 +90,9 @@ page-content/          Wiki page source files (Groovy, Velocity, JS, CSS)
   ├── SaveReviewer.groovy   Reviewer assignment handler
   ├── MarkReviewerDone.groovy  Mark reviewer complete
   ├── SaveApproval.groovy   APO approve/reject handler
+  ├── ArchiveAll.groovy     Bulk archive all active comments
+  ├── ArchiveDocument.groovy  Archive single document comments
+  ├── ArchiveDashboard.groovy  Browse past cycles + Word/PDF export
   ├── CommentDashboard.vm   Cross-document dashboard
   ├── AddComment.vm         Comment form template
   ├── AddReviewer.vm        Reviewer assignment form
@@ -95,7 +101,6 @@ page-content/          Wiki page source files (Groovy, Velocity, JS, CSS)
   ├── QFScripts.js          Client-side JavaScript
   └── QFStyles.css          Stylesheet
 mockup/                UI mockup (HTML prototype)
-debugging/             Screenshots from development/testing
 ```
 
 ## Uninstallation
@@ -107,9 +112,10 @@ debugging/             Screenshots from development/testing
 ## Data & Privacy
 
 - **Storage:** xWiki XObjects on `QualityFlow.Comments.*` holder pages
+- **Archives:** Stored in `QualityFlow.Archive.<cycle-timestamp>.*` pages
 - **Access control:** View rights on QualityFlow space required to see comments; write actions require group membership
 - **External transmission:** None — all data remains on-premise
-- **Export:** CSV export available from the Comment Dashboard
+- **Export:** CSV export from Comment Dashboard; Word (.doc) and HTML/PDF export from Archive Dashboard
 
 ## License
 

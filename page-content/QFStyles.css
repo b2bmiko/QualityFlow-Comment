@@ -1,6 +1,13 @@
 /* QualityFlow.QFStyles */
 /* Loaded via $xwiki.ssfx.use("QualityFlow.QFStyles", true) */
 
+/* ── HIDE PAGE METADATA (author/date) ─────────────────────────────── */
+#xdocAuthors,
+.xdocCreation,
+.xdocLastModification {
+  display: none !important;
+}
+
 /* ── LAYOUT ────────────────────────────────────────────────────────── */
 .qf-layout {
   display: flex;

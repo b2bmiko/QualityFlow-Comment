@@ -95,7 +95,7 @@ html.append('<input type="text" name="targetPage" required placeholder="Paste th
 html.append('</div>')
 html.append('<button type="submit" style="background:#dc3545;color:#fff;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;width:100%;">&#10007; Disable QualityFlow</button>')
 html.append('</form></div>')
-html.append('<p style="font-size:11px;color:#adb5bd;margin-top:16px;text-align:center;">QualityFlow Comment Summary v1.0.0 &mdash; LGPL-2.1 &mdash; Mike Sawaya / Notropia.co</p>')
+html.append('<p style="font-size:11px;color:#adb5bd;margin-top:16px;text-align:center;">QualityFlow Comment Summary v1.0.0 &mdash; LGPL-2.1 &mdash; b2bmike</p>')
 html.append('</div>')
 
 writer.print(html.toString())
