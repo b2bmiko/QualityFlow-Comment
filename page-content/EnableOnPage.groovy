@@ -11,7 +11,12 @@ def action = request.getParameter('action') ?: ''
 // If user pasted a URL, extract the page reference from it
 if (targetPage.contains('/bin/view/')) {
   def urlMatch = targetPage.replaceAll('.*?/bin/view/', '').replaceAll('\\?.*', '').replaceAll('#.*', '').replaceAll('/\\s*$', '')
-  targetPage = java.net.URLDecoder.decode(urlMatch, 'UTF-8').replace('/', '.').trim()
+  targetPage = java.net.URLDecoder.decode(urlMatch, 'UTF-8').trim()
+  // Remove trailing single-char path segments that are likely view mode artifacts (e.g., /v)
+  targetPage = targetPage.replaceAll('/[a-z]$', '')
+  // Remove trailing slashes and spaces
+  targetPage = targetPage.replaceAll('[/\\s]+$', '')
+  targetPage = targetPage.replace('/', '.').trim()
   if (!targetPage.endsWith('.WebHome') && !targetPage.contains('.WebHome')) {
     targetPage = targetPage + '.WebHome'
   }
