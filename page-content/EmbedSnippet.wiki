@@ -1,215 +1,207 @@
-{{html clean="false"}}
+{{html clean="false" wiki="false"}}
 <div id="qf-panel-container"></div>
-<div id="qf-popover" style="display:none;position:absolute;z-index:9999;background:#212529;color:#fff;border-radius:4px;padding:4px 8px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;font-size:12px;" onclick="qfOpenFormWithAnchor()">&#128172; Add Comment</div>
-<script>
+<div id="qf-popover" style="display:none;position:absolute;z-index:9999;background:#212529;color:#fff;border-radius:4px;padding:4px 8px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;font-size:12px;" onclick="qfOpenFormWithAnchor()">Add Comment</div>
+<script type="text/javascript">
+//<![CDATA[
 (function(){
-  var path=window.location.pathname;
-  var match=path.match(/\/bin\/view\/(.+)/);
-  var docRef=match?decodeURIComponent(match[1]).replace(/\/$/,''):'';
-  if(!docRef.endsWith('WebHome'))docRef=docRef+'.WebHome';
-  docRef=docRef.replace(/\//g,'.');
-  var returnUrl=window.location.pathname;
+  var path = window.location.pathname;
+  var parts = path.split('/bin/view/');
+  var docRef = parts.length > 1 ? decodeURIComponent(parts[1]).replace(/\/$/, '') : '';
+  if (docRef.indexOf('WebHome') === -1) { docRef = docRef + '.WebHome'; }
+  docRef = docRef.replace(/\//g, '.');
+  var returnUrl = window.location.pathname;
 
-  // Load the sidebar panel
-  fetch('/bin/view/QualityFlow/RenderPanel?docRef='+encodeURIComponent(docRef)+'&returnUrl='+encodeURIComponent(returnUrl))
-    .then(function(r){return r.text();})
-    .then(function(html){
-      document.getElementById('qf-panel-container').innerHTML=html;
+  fetch('/bin/view/QualityFlow/RenderPanel?docRef=' + encodeURIComponent(docRef) + '&returnUrl=' + encodeURIComponent(returnUrl))
+    .then(function(r) { return r.text(); })
+    .then(function(h) {
+      document.getElementById('qf-panel-container').innerHTML = h;
       injectHighlights();
     });
 
-  // ── POPOVER (only on text selection) ──────────────────────────────
-  var popover=document.getElementById('qf-popover');
-  var capturedText='';
+  var popover = document.getElementById('qf-popover');
+  var capturedText = '';
 
-  document.addEventListener('mouseup',function(e){
-    // Don't show popover if clicking inside the sidebar panel
-    if(e.target.closest && e.target.closest('#qf-panel-container')) return;
-    if(e.target.closest && e.target.closest('#qf-popover')) return;
-
-    setTimeout(function(){
-      var sel=window.getSelection();
-      var text=sel?sel.toString().trim():'';
-
-      // Only show if real text selection (minimum 3 chars)
-      if(text.length<3){
-        popover.style.display='none';
-        return;
-      }
-
-      capturedText=text.substring(0,500);
-      var rect=sel.getRangeAt(0).getBoundingClientRect();
-      popover.style.top=(window.scrollY+rect.bottom+6)+'px';
-      popover.style.left=(window.scrollX+rect.left)+'px';
-      popover.style.display='block';
-    },10);
+  document.addEventListener('mouseup', function(e) {
+    if (e.target.closest && e.target.closest('#qf-panel-container')) return;
+    if (e.target.closest && e.target.closest('#qf-popover')) return;
+    setTimeout(function() {
+      var sel = window.getSelection();
+      var text = sel ? sel.toString().trim() : '';
+      if (text.length < 3) { popover.style.display = 'none'; return; }
+      capturedText = text.substring(0, 500);
+      var rect = sel.getRangeAt(0).getBoundingClientRect();
+      popover.style.top = (window.scrollY + rect.bottom + 6) + 'px';
+      popover.style.left = (window.scrollX + rect.left) + 'px';
+      popover.style.display = 'block';
+    }, 10);
   });
 
-  // Hide popover when clicking elsewhere
-  document.addEventListener('mousedown',function(e){
-    if(!popover.contains(e.target)){
-      popover.style.display='none';
-    }
+  document.addEventListener('mousedown', function(e) {
+    if (!popover.contains(e.target)) { popover.style.display = 'none'; }
   });
 
-  // ── OPEN FORM WITH ANCHOR ─────────────────────────────────────────
-  window.qfOpenFormWithAnchor=function(){
-    popover.style.display='none';
-    var form=document.getElementById('qf-add-comment-form');
-    if(form) form.style.display='block';
-
-    // Find the anchorText hidden input inside the form
-    var ai=form?form.querySelector('input[name="anchorText"]'):null;
-    if(ai) ai.value=capturedText;
-
-    // Show anchor preview
-    var p=document.getElementById('qf-anchor-preview');
-    if(!p && form){
-      p=document.createElement('div');
-      p.id='qf-anchor-preview';
-      p.style.cssText='background:#fff3cd;border:1px solid #ffda6a;border-radius:4px;padding:6px;font-size:11px;margin-bottom:8px;color:#664d03;';
-      var formEl=form.querySelector('form');
-      if(formEl) formEl.insertBefore(p,formEl.firstChild);
+  // Global function: scroll from sidebar anchor indicator to the highlighted text
+  window.qfScrollToMark = function(commentId) {
+    var marks = document.querySelectorAll('mark[data-comment-id="' + commentId + '"]');
+    if (marks.length) {
+      marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      marks[0].style.background = 'rgba(255,200,0,.7)';
+      setTimeout(function() { marks[0].style.background = 'rgba(255,243,128,.45)'; }, 2500);
+    } else {
+      alert('Highlighted text not found on page. The content may have changed since this comment was added.');
     }
-    if(p){
-      p.innerHTML='&#128205; Anchored to: <em>"'+capturedText.substring(0,80)+(capturedText.length>80?'...':'')+'"</em>';
-      p.style.display='block';
+  };
+
+  window.qfOpenFormWithAnchor = function() {
+    popover.style.display = 'none';
+    var form = document.getElementById('qf-add-comment-form');
+    if (form) form.style.display = 'block';
+    var ai = form ? form.querySelector('input[name="anchorText"]') : null;
+    if (ai) ai.value = capturedText;
+    var p = document.getElementById('qf-anchor-preview');
+    if (!p && form) {
+      p = document.createElement('div');
+      p.id = 'qf-anchor-preview';
+      p.style.cssText = 'background:#fff3cd;border:1px solid #ffda6a;border-radius:4px;padding:6px;font-size:11px;margin-bottom:8px;color:#664d03;';
+      var formEl = form.querySelector('form');
+      if (formEl) formEl.insertBefore(p, formEl.firstChild);
+    }
+    if (p) {
+      var preview = capturedText.substring(0, 80);
+      if (capturedText.length > 80) preview = preview + '...';
+      p.innerHTML = 'Anchored to: <em>' + preview + '</em>';
+      p.style.display = 'block';
     }
     window.getSelection().removeAllRanges();
   };
 
-  // ── HIGHLIGHT INJECTION ───────────────────────────────────────────
-  function injectHighlights(){
-    fetch('/bin/view/QualityFlow/RenderHighlights?docRef='+encodeURIComponent(docRef))
-      .then(function(r){return r.text();})
-      .then(function(json){
-        try{
-          var comments=JSON.parse(json);
-          var area=document.querySelector('#xwikicontent')
-                   ||document.querySelector('.xcontent')
-                   ||document.querySelector('.wiki-content')
-                   ||document.body;
+  function injectHighlights() {
+    var url = '/bin/view/QualityFlow/RenderHighlights?docRef=' + encodeURIComponent(docRef);
+    console.log('[QF] Fetching highlights:', url);
+    fetch(url)
+      .then(function(r) { return r.text(); })
+      .then(function(raw) {
+        console.log('[QF] Response:', raw.substring(0, 300));
+        var comments;
+        try { comments = JSON.parse(raw); } catch(e) { console.error('[QF] Parse error:', e); return; }
+        console.log('[QF] Comments with anchors:', comments.length);
 
-          comments.forEach(function(c){
-            if(!c.anchorText||c.anchorText.trim()==='') return;
+        var area = document.getElementById('xwikicontent')
+                || document.querySelector('.xcontent')
+                || document.getElementById('mainContentArea')
+                || document.body;
+        console.log('[QF] Area found:', area.id || area.className);
 
-            // Light yellow background for all, colored border by type
-            var bgColor='rgba(255,243,128,.45)';
-            var borderColor='#ffc107';
+        comments.forEach(function(c) {
+          if (!c.anchorText || c.anchorText.trim() === '') return;
+          console.log('[QF] Searching for:', c.anchorText.substring(0, 60));
 
-            if(c.status==='Resolved'){
-              bgColor='rgba(108,117,125,.1)';
-              borderColor='#adb5bd';
-            } else if(c.type==='Blocker'){
-              borderColor='#dc3545';
-            } else if(c.type==='Suggestion'){
-              borderColor='#0d6efd';
-            }
-
-            wrapText(area,c.anchorText,bgColor,borderColor,c.id);
-          });
-        }catch(e){
-          console.log('QF highlight error:',e);
-        }
-      })
-      .catch(function(e){
-        console.log('QF highlight fetch error:',e);
-      });
-  }
-
-  // ── TEXT WRAPPING ─────────────────────────────────────────────────
-  function wrapText(container,searchText,bgColor,borderColor,commentId){
-    // Normalize search text
-    var normalizedSearch=searchText.replace(/\s+/g,' ').trim();
-    if(!normalizedSearch) return;
-
-    // Strategy 1: Try direct match in single text nodes
-    var walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT,null,false);
-    var node;
-    while((node=walker.nextNode())){
-      var nodeText=node.nodeValue;
-      var idx=nodeText.indexOf(searchText);
-      if(idx===-1){
-        // Try normalized
-        idx=nodeText.replace(/\s+/g,' ').indexOf(normalizedSearch);
-      }
-      if(idx!==-1){
-        var matchLen=idx===nodeText.indexOf(searchText)?searchText.length:normalizedSearch.length;
-        applyMark(node,idx,matchLen,bgColor,borderColor,commentId);
-        return;
-      }
-    }
-
-    // Strategy 2: Concatenate all text content and find position across nodes
-    var textNodes=[];
-    var fullText='';
-    walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT,null,false);
-    while((node=walker.nextNode())){
-      textNodes.push({node:node,start:fullText.length});
-      fullText+=node.nodeValue;
-    }
-
-    var searchIdx=fullText.indexOf(searchText);
-    if(searchIdx===-1){
-      searchIdx=fullText.replace(/\s+/g,' ').indexOf(normalizedSearch);
-      // Can't reliably map position if normalization changed lengths, try substring
-      if(searchIdx===-1){
-        // Strategy 3: Try first 40 chars as partial match
-        var partial=normalizedSearch.substring(0,Math.min(40,normalizedSearch.length));
-        for(var i=0;i<textNodes.length;i++){
-          var tn=textNodes[i].node;
-          var pi=tn.nodeValue.indexOf(partial);
-          if(pi===-1) pi=tn.nodeValue.replace(/\s+/g,' ').indexOf(partial);
-          if(pi!==-1){
-            applyMark(tn,pi,Math.min(partial.length,tn.nodeValue.length-pi),bgColor,borderColor,commentId);
-            return;
+          var found = area.textContent.indexOf(c.anchorText) !== -1;
+          console.log('[QF] Direct match in textContent:', found);
+          if (!found) {
+            var norm = area.textContent.replace(/\s+/g, ' ');
+            var normSearch = c.anchorText.replace(/\s+/g, ' ').trim();
+            found = norm.indexOf(normSearch) !== -1;
+            console.log('[QF] Normalized match:', found);
           }
-        }
-        return;
-      }
-    }
 
-    // Find which text node contains the start of the match
-    var matchEnd=searchIdx+searchText.length;
-    for(var i=0;i<textNodes.length;i++){
-      var tnStart=textNodes[i].start;
-      var tnEnd=tnStart+textNodes[i].node.nodeValue.length;
-      if(searchIdx>=tnStart && searchIdx<tnEnd){
-        // Match starts in this node
-        var localIdx=searchIdx-tnStart;
-        var localLen=Math.min(textNodes[i].node.nodeValue.length-localIdx,searchText.length);
-        applyMark(textNodes[i].node,localIdx,localLen,bgColor,borderColor,commentId);
-        return;
-      }
-    }
+          var bg = 'rgba(255,243,128,.45)';
+          var border = '#ffc107';
+          if (c.status === 'Resolved') { bg = 'rgba(108,117,125,.1)'; border = '#adb5bd'; }
+          else if (c.type === 'Blocker') { border = '#dc3545'; }
+          else if (c.type === 'Suggestion') { border = '#0d6efd'; }
+
+          wrapText(area, c.anchorText, bg, border, c.id);
+        });
+      })
+      .catch(function(e) { console.error('[QF] Fetch error:', e); });
   }
 
-  function applyMark(textNode,idx,matchLen,bgColor,borderColor,commentId){
-    var before=textNode.nodeValue.substring(0,idx);
-    var matchText=textNode.nodeValue.substring(idx,idx+matchLen);
-    var after=textNode.nodeValue.substring(idx+matchLen);
+  function wrapText(container, searchText, bgColor, borderColor, commentId) {
+    var normalizedSearch = searchText.replace(/\s+/g, ' ').trim();
+    if (!normalizedSearch) return;
 
-    var mark=document.createElement('mark');
-    mark.style.cssText='background:'+bgColor+';border-bottom:2px solid '+borderColor+';cursor:pointer;border-radius:2px;padding:0 1px;';
-    mark.setAttribute('data-comment-id',commentId);
-    mark.title='Click to see comment';
-    mark.textContent=matchText;
-    mark.addEventListener('click',function(){
-      var id=this.getAttribute('data-comment-id');
-      var card=document.querySelector('[data-qf-card="'+id+'"]');
-      if(card){
-        card.scrollIntoView({behavior:'smooth',block:'nearest'});
-        card.style.boxShadow='0 0 0 3px rgba(13,110,253,.4)';
-        setTimeout(function(){card.style.boxShadow='';},2500);
+    var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    var node;
+
+    while ((node = walker.nextNode())) {
+      var idx = node.nodeValue.indexOf(searchText);
+      if (idx === -1) {
+        idx = node.nodeValue.indexOf(normalizedSearch);
+      }
+      if (idx === -1) {
+        var nodeNorm = node.nodeValue.replace(/\s+/g, ' ');
+        idx = nodeNorm.indexOf(normalizedSearch);
+      }
+      if (idx !== -1) {
+        var len = Math.min(searchText.length, node.nodeValue.length - idx);
+        applyMark(node, idx, len, bgColor, borderColor, commentId);
+        console.log('[QF] Highlight applied for comment', commentId);
+        return;
+      }
+    }
+
+    // Fallback: concatenate and search across nodes
+    var textNodes = [];
+    var fullText = '';
+    walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    while ((node = walker.nextNode())) {
+      textNodes.push({ node: node, start: fullText.length });
+      fullText = fullText + node.nodeValue;
+    }
+
+    var searchIdx = fullText.indexOf(searchText);
+    if (searchIdx === -1) { searchIdx = fullText.indexOf(normalizedSearch); }
+    if (searchIdx === -1) {
+      var partial = normalizedSearch.substring(0, 30);
+      searchIdx = fullText.indexOf(partial);
+    }
+    if (searchIdx === -1) {
+      console.log('[QF] Could not find text for comment', commentId);
+      return;
+    }
+
+    for (var i = 0; i < textNodes.length; i++) {
+      var tnStart = textNodes[i].start;
+      var tnEnd = tnStart + textNodes[i].node.nodeValue.length;
+      if (searchIdx >= tnStart && searchIdx < tnEnd) {
+        var localIdx = searchIdx - tnStart;
+        var localLen = Math.min(textNodes[i].node.nodeValue.length - localIdx, normalizedSearch.length);
+        applyMark(textNodes[i].node, localIdx, localLen, bgColor, borderColor, commentId);
+        console.log('[QF] Highlight applied (cross-node) for comment', commentId);
+        return;
+      }
+    }
+    console.log('[QF] Failed to apply highlight for comment', commentId);
+  }
+
+  function applyMark(textNode, idx, matchLen, bgColor, borderColor, commentId) {
+    var before = textNode.nodeValue.substring(0, idx);
+    var matchText = textNode.nodeValue.substring(idx, idx + matchLen);
+    var after = textNode.nodeValue.substring(idx + matchLen);
+
+    var mark = document.createElement('mark');
+    mark.style.cssText = 'background:' + bgColor + ';border-bottom:2px solid ' + borderColor + ';cursor:pointer;border-radius:2px;padding:0 1px;';
+    mark.setAttribute('data-comment-id', commentId);
+    mark.title = 'Click to see comment';
+    mark.textContent = matchText;
+    mark.addEventListener('click', function() {
+      var id = this.getAttribute('data-comment-id');
+      var card = document.querySelector('[data-qf-card="' + id + '"]');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        card.style.boxShadow = '0 0 0 3px rgba(13,110,253,.4)';
+        setTimeout(function() { card.style.boxShadow = ''; }, 2500);
       }
     });
 
-    var parent=textNode.parentNode;
-    if(before) parent.insertBefore(document.createTextNode(before),textNode);
-    parent.insertBefore(mark,textNode);
-    if(after) parent.insertBefore(document.createTextNode(after),textNode);
+    var parent = textNode.parentNode;
+    if (before) parent.insertBefore(document.createTextNode(before), textNode);
+    parent.insertBefore(mark, textNode);
+    if (after) parent.insertBefore(document.createTextNode(after), textNode);
     parent.removeChild(textNode);
   }
 })();
+//]]>
 </script>
 {{/html}}

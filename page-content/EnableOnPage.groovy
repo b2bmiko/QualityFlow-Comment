@@ -22,7 +22,7 @@ resp.setContentType('text/html; charset=UTF-8')
 def writer = resp.getWriter()
 
 def snippetDoc = xwiki.getDocument('QualityFlow.EmbedSnippet')
-def snippet = snippetDoc.getContent()
+def snippet = '{{include reference="QualityFlow.EmbedSnippet"/}}'
 
 def resultMsg = ''
 if (action == 'enable' && targetPage) {

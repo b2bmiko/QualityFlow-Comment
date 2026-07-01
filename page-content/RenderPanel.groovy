@@ -83,7 +83,7 @@ if (openComments.isEmpty()) {
     def anchorText = esc(c.getValue('anchorText') ?: '')
     if (anchorText) {
       def truncAnchor = anchorText.length() > 60 ? anchorText.substring(0, 60) + '...' : anchorText
-      openCardsHtml.append("<div style=\"background:#fffde6;border-left:3px solid #ffc107;padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;font-size:11px;color:#664d03;cursor:pointer;\" onclick=\"var marks=document.querySelectorAll('mark[data-comment-id=\\\"${objNum}\\\"]');if(marks.length){marks[0].scrollIntoView({behavior:'smooth',block:'center'});marks[0].style.background='rgba(255,200,0,.6)';setTimeout(function(){marks[0].style.background='rgba(255,243,128,.45)';},2500);}else{alert('Highlighted text not found on page. The content may have changed since this comment was added.')}\" title=\"Click to scroll to highlighted text\">&#128205; <em>&ldquo;${truncAnchor}&rdquo;</em></div>")
+      openCardsHtml.append("<div style=\"background:#fffde6;border-left:3px solid #ffc107;padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;font-size:11px;color:#664d03;cursor:pointer;\" onclick=\"qfScrollToMark(${objNum})\" title=\"Click to scroll to highlighted text\">&#128205; <em>&ldquo;${truncAnchor}&rdquo;</em></div>")
     }
     if (cSection) { openCardsHtml.append("<div style=\"font-size:11px;color:#6c757d;margin-bottom:2px;\">&#128205; ${cSection}</div>") }
     if (cTimeAgo) { openCardsHtml.append("<div style=\"font-size:11px;color:#adb5bd;margin-bottom:4px;\">${cTimeAgo}</div>") }
@@ -122,7 +122,7 @@ if (resolvedComments.isEmpty()) {
     def anchorTextR = esc(c.getValue('anchorText') ?: '')
     if (anchorTextR) {
       def truncAnchorR = anchorTextR.length() > 60 ? anchorTextR.substring(0, 60) + '...' : anchorTextR
-      resolvedCardsHtml.append("<div style=\"background:#f0f0f0;border-left:3px solid #adb5bd;padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;font-size:11px;color:#6c757d;cursor:pointer;\" onclick=\"var marks=document.querySelectorAll('mark[data-comment-id=\\\"${objNum}\\\"]');if(marks.length){marks[0].scrollIntoView({behavior:'smooth',block:'center'});marks[0].style.background='rgba(255,200,0,.6)';setTimeout(function(){marks[0].style.background='rgba(108,117,125,.1)';},2500);}else{alert('Highlighted text not found on page. The content may have changed since this comment was added.')}\" title=\"Click to scroll to highlighted text\">&#128205; <em>&ldquo;${truncAnchorR}&rdquo;</em></div>")
+      resolvedCardsHtml.append("<div style=\"background:#f0f0f0;border-left:3px solid #adb5bd;padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;font-size:11px;color:#6c757d;cursor:pointer;\" onclick=\"qfScrollToMark(${objNum})\" title=\"Click to scroll to highlighted text\">&#128205; <em>&ldquo;${truncAnchorR}&rdquo;</em></div>")
     }
     resolvedCardsHtml.append("<div style=\"font-size:12px;line-height:1.5;\">${cText}</div>")
     if (cResponse) { resolvedCardsHtml.append("<div style=\"margin-top:6px;padding:6px;background:#e8f4e8;border-radius:4px;font-size:12px;color:#155724;\"><strong>Response:</strong> ${cResponse}</div>") }
