@@ -76,8 +76,15 @@ if (openComments.isEmpty()) {
     def cTimeAgo = timeAgo(c.getValue('date'))
     def badgeColor = cType == 'Blocker' ? 'background:#f8d7da;color:#842029' : (cType == 'Suggestion' ? 'background:#cfe2ff;color:#084298' : 'background:#fff3cd;color:#664d03')
 
-    openCardsHtml.append("<div style=\"background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:10px;margin-bottom:8px;\">")
+    openCardsHtml.append("<div data-qf-card=\"${objNum}\" style=\"background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:10px;margin-bottom:8px;\">")
     openCardsHtml.append("<div style=\"display:flex;align-items:center;gap:6px;margin-bottom:4px;\"><span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#6c757d;color:#fff;font-size:11px;font-weight:700;\">${initial}</span><span style=\"font-size:12px;font-weight:600;flex:1;\">${authorName}</span><span style=\"display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;${badgeColor}\">${cType}</span></div>")
+
+    // Show anchored text indicator (like Word margin comments)
+    def anchorText = esc(c.getValue('anchorText') ?: '')
+    if (anchorText) {
+      def truncAnchor = anchorText.length() > 60 ? anchorText.substring(0, 60) + '...' : anchorText
+      openCardsHtml.append("<div style=\"background:#fffde6;border-left:3px solid #ffc107;padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;font-size:11px;color:#664d03;cursor:pointer;\" onclick=\"var marks=document.querySelectorAll('mark[data-comment-id=\\\"${objNum}\\\"]');if(marks.length){marks[0].scrollIntoView({behavior:'smooth',block:'center'});marks[0].style.background='rgba(255,200,0,.6)';setTimeout(function(){marks[0].style.background='';},2000);}\" title=\"Click to scroll to highlighted text\">&#128205; <em>&ldquo;${truncAnchor}&rdquo;</em></div>")
+    }
     if (cSection) { openCardsHtml.append("<div style=\"font-size:11px;color:#6c757d;margin-bottom:2px;\">&#128205; ${cSection}</div>") }
     if (cTimeAgo) { openCardsHtml.append("<div style=\"font-size:11px;color:#adb5bd;margin-bottom:4px;\">${cTimeAgo}</div>") }
     openCardsHtml.append("<div style=\"font-size:12px;line-height:1.5;\">${cText}</div>")
@@ -108,8 +115,15 @@ if (resolvedComments.isEmpty()) {
     def rDate = c.getValue('resolvedDate')
     def resolvedDateStr = rDate ? new java.text.SimpleDateFormat('yyyy-MM-dd').format(rDate) : ''
 
-    resolvedCardsHtml.append("<div style=\"background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:10px;margin-bottom:8px;opacity:0.75;\">")
+    resolvedCardsHtml.append("<div data-qf-card=\"${objNum}\" style=\"background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:10px;margin-bottom:8px;opacity:0.75;\">")
     resolvedCardsHtml.append("<div style=\"display:flex;align-items:center;gap:6px;margin-bottom:4px;\"><span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#adb5bd;color:#fff;font-size:11px;font-weight:700;\">${initial}</span><span style=\"font-size:12px;font-weight:600;flex:1;\">${authorName}</span><span style=\"font-size:11px;color:#28a745;font-weight:600;\">&#10003; Resolved</span></div>")
+
+    // Show anchored text indicator for resolved comments too
+    def anchorTextR = esc(c.getValue('anchorText') ?: '')
+    if (anchorTextR) {
+      def truncAnchorR = anchorTextR.length() > 60 ? anchorTextR.substring(0, 60) + '...' : anchorTextR
+      resolvedCardsHtml.append("<div style=\"background:#f0f0f0;border-left:3px solid #adb5bd;padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;font-size:11px;color:#6c757d;cursor:pointer;\" onclick=\"var marks=document.querySelectorAll('mark[data-comment-id=\\\"${objNum}\\\"]');if(marks.length){marks[0].scrollIntoView({behavior:'smooth',block:'center'});marks[0].style.background='rgba(255,200,0,.6)';setTimeout(function(){marks[0].style.background='';},2000);}\" title=\"Click to scroll to highlighted text\">&#128205; <em>&ldquo;${truncAnchorR}&rdquo;</em></div>")
+    }
     resolvedCardsHtml.append("<div style=\"font-size:12px;line-height:1.5;\">${cText}</div>")
     if (cResponse) { resolvedCardsHtml.append("<div style=\"margin-top:6px;padding:6px;background:#e8f4e8;border-radius:4px;font-size:12px;color:#155724;\"><strong>Response:</strong> ${cResponse}</div>") }
     resolvedCardsHtml.append("<div style=\"font-size:11px;color:#6c757d;margin-top:4px;\">Resolved by ${resolvedBy}${resolvedDateStr ? ' on ' + resolvedDateStr : ''}</div>")

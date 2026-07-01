@@ -3,15 +3,171 @@
 <div id="qf-popover" style="display:none;position:absolute;z-index:9999;background:#212529;color:#fff;border-radius:4px;padding:4px 8px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;font-size:12px;" onclick="qfOpenFormWithAnchor()">&#128172; Add Comment</div>
 <script>
 (function(){
-  var path=window.location.pathname;var match=path.match(/\/bin\/view\/(.+)/);var docRef=match?decodeURIComponent(match[1]).replace(/\/$/,''):'';if(!docRef.endsWith('WebHome'))docRef=docRef+'.WebHome';docRef=docRef.replace(/\//g,'.');
+  var path=window.location.pathname;
+  var match=path.match(/\/bin\/view\/(.+)/);
+  var docRef=match?decodeURIComponent(match[1]).replace(/\/$/,''):'';
+  if(!docRef.endsWith('WebHome'))docRef=docRef+'.WebHome';
+  docRef=docRef.replace(/\//g,'.');
   var returnUrl=window.location.pathname;
-  fetch('/bin/view/QualityFlow/RenderPanel?docRef='+encodeURIComponent(docRef)+'&returnUrl='+encodeURIComponent(returnUrl)).then(function(r){return r.text();}).then(function(html){document.getElementById('qf-panel-container').innerHTML=html;injectHighlights();});
-  var popover=document.getElementById('qf-popover');var capturedText='';
-  document.addEventListener('mouseup',function(e){if(e.target.closest&&e.target.closest('#qf-panel-container'))return;setTimeout(function(){var sel=window.getSelection();var text=sel?sel.toString().trim():'';if(text.length<3){popover.style.display='none';return;}capturedText=text.substring(0,500);var rect=sel.getRangeAt(0).getBoundingClientRect();popover.style.top=(window.scrollY+rect.bottom+6)+'px';popover.style.left=(window.scrollX+rect.left)+'px';popover.style.display='block';},10);});
-  document.addEventListener('mousedown',function(e){if(!popover.contains(e.target))popover.style.display='none';});
-  window.qfOpenFormWithAnchor=function(){popover.style.display='none';var form=document.getElementById('qf-add-comment-form');if(form)form.style.display='block';var ai=form?form.querySelector('input[name="anchorText"]'):null;if(!ai&&form){var f=form.querySelector('form');ai=document.createElement('input');ai.type='hidden';ai.name='anchorText';f.appendChild(ai);}if(ai)ai.value=capturedText;var p=document.getElementById('qf-anchor-preview');if(!p&&form){p=document.createElement('div');p.id='qf-anchor-preview';p.style.cssText='background:#fff3cd;border:1px solid #ffda6a;border-radius:4px;padding:6px;font-size:11px;margin-bottom:8px;color:#664d03;';form.querySelector('form').insertBefore(p,form.querySelector('form').firstChild);}if(p){p.innerHTML='Anchored to: <em>"'+capturedText.substring(0,80)+(capturedText.length>80?'...':'')+'"</em>';p.style.display='block';}window.getSelection().removeAllRanges();};
-  function injectHighlights(){fetch('/bin/view/QualityFlow/RenderHighlights?docRef='+encodeURIComponent(docRef)).then(function(r){return r.text();}).then(function(json){try{var comments=JSON.parse(json);var area=document.querySelector('.xcontent')||document.querySelector('#xwikicontent')||document.body;comments.forEach(function(c){if(!c.anchorText||c.anchorText.trim()==='')return;var color='rgba(255,243,128,.5)';if(c.status==='Resolved')color='rgba(108,117,125,.1)';var border=c.type==='Blocker'?'#dc3545':(c.type==='Suggestion'?'#0d6efd':'#ffc107');if(c.status==='Resolved')border='#adb5bd';wrapText(area,c.anchorText,color,border,c.id);});}catch(e){}}).catch(function(){});}
-  function wrapText(container,searchText,bgColor,borderColor,commentId){var walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT,null,false);var node;while((node=walker.nextNode())){var idx=node.nodeValue.indexOf(searchText);if(idx===-1)continue;var before=node.nodeValue.substring(0,idx);var after=node.nodeValue.substring(idx+searchText.length);var mark=document.createElement('mark');mark.style.cssText='background:'+bgColor+';border-bottom:2px solid '+borderColor+';cursor:pointer;border-radius:2px;padding:0 1px;';mark.setAttribute('data-comment-id',commentId);mark.textContent=searchText;var parent=node.parentNode;if(before)parent.insertBefore(document.createTextNode(before),node);parent.insertBefore(mark,node);if(after)parent.insertBefore(document.createTextNode(after),node);parent.removeChild(node);break;}}
+
+  // Load the sidebar panel
+  fetch('/bin/view/QualityFlow/RenderPanel?docRef='+encodeURIComponent(docRef)+'&returnUrl='+encodeURIComponent(returnUrl))
+    .then(function(r){return r.text();})
+    .then(function(html){
+      document.getElementById('qf-panel-container').innerHTML=html;
+      injectHighlights();
+    });
+
+  // ── POPOVER (only on text selection) ──────────────────────────────
+  var popover=document.getElementById('qf-popover');
+  var capturedText='';
+
+  document.addEventListener('mouseup',function(e){
+    // Don't show popover if clicking inside the sidebar panel
+    if(e.target.closest && e.target.closest('#qf-panel-container')) return;
+    if(e.target.closest && e.target.closest('#qf-popover')) return;
+
+    setTimeout(function(){
+      var sel=window.getSelection();
+      var text=sel?sel.toString().trim():'';
+
+      // Only show if real text selection (minimum 3 chars)
+      if(text.length<3){
+        popover.style.display='none';
+        return;
+      }
+
+      capturedText=text.substring(0,500);
+      var rect=sel.getRangeAt(0).getBoundingClientRect();
+      popover.style.top=(window.scrollY+rect.bottom+6)+'px';
+      popover.style.left=(window.scrollX+rect.left)+'px';
+      popover.style.display='block';
+    },10);
+  });
+
+  // Hide popover when clicking elsewhere
+  document.addEventListener('mousedown',function(e){
+    if(!popover.contains(e.target)){
+      popover.style.display='none';
+    }
+  });
+
+  // ── OPEN FORM WITH ANCHOR ─────────────────────────────────────────
+  window.qfOpenFormWithAnchor=function(){
+    popover.style.display='none';
+    var form=document.getElementById('qf-add-comment-form');
+    if(form) form.style.display='block';
+
+    // Find the anchorText hidden input inside the form
+    var ai=form?form.querySelector('input[name="anchorText"]'):null;
+    if(ai) ai.value=capturedText;
+
+    // Show anchor preview
+    var p=document.getElementById('qf-anchor-preview');
+    if(!p && form){
+      p=document.createElement('div');
+      p.id='qf-anchor-preview';
+      p.style.cssText='background:#fff3cd;border:1px solid #ffda6a;border-radius:4px;padding:6px;font-size:11px;margin-bottom:8px;color:#664d03;';
+      var formEl=form.querySelector('form');
+      if(formEl) formEl.insertBefore(p,formEl.firstChild);
+    }
+    if(p){
+      p.innerHTML='&#128205; Anchored to: <em>"'+capturedText.substring(0,80)+(capturedText.length>80?'...':'')+'"</em>';
+      p.style.display='block';
+    }
+    window.getSelection().removeAllRanges();
+  };
+
+  // ── HIGHLIGHT INJECTION ───────────────────────────────────────────
+  function injectHighlights(){
+    fetch('/bin/view/QualityFlow/RenderHighlights?docRef='+encodeURIComponent(docRef))
+      .then(function(r){return r.text();})
+      .then(function(json){
+        try{
+          var comments=JSON.parse(json);
+          var area=document.querySelector('#xwikicontent')
+                   ||document.querySelector('.xcontent')
+                   ||document.querySelector('.wiki-content')
+                   ||document.body;
+
+          comments.forEach(function(c){
+            if(!c.anchorText||c.anchorText.trim()==='') return;
+
+            // Light yellow background for all, colored border by type
+            var bgColor='rgba(255,243,128,.45)';
+            var borderColor='#ffc107';
+
+            if(c.status==='Resolved'){
+              bgColor='rgba(108,117,125,.1)';
+              borderColor='#adb5bd';
+            } else if(c.type==='Blocker'){
+              borderColor='#dc3545';
+            } else if(c.type==='Suggestion'){
+              borderColor='#0d6efd';
+            }
+
+            wrapText(area,c.anchorText,bgColor,borderColor,c.id);
+          });
+        }catch(e){
+          console.log('QF highlight error:',e);
+        }
+      })
+      .catch(function(e){
+        console.log('QF highlight fetch error:',e);
+      });
+  }
+
+  // ── TEXT WRAPPING ─────────────────────────────────────────────────
+  function wrapText(container,searchText,bgColor,borderColor,commentId){
+    // Normalize whitespace in search text for matching
+    var normalizedSearch=searchText.replace(/\s+/g,' ').trim();
+
+    var walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT,null,false);
+    var node;
+    var textNodes=[];
+
+    // Collect all text nodes
+    while((node=walker.nextNode())){
+      textNodes.push(node);
+    }
+
+    // Try exact match first
+    for(var i=0;i<textNodes.length;i++){
+      node=textNodes[i];
+      var idx=node.nodeValue.indexOf(searchText);
+      if(idx===-1){
+        // Try normalized match
+        idx=node.nodeValue.replace(/\s+/g,' ').indexOf(normalizedSearch);
+        if(idx===-1) continue;
+      }
+
+      var matchLen=searchText.length;
+      var before=node.nodeValue.substring(0,idx);
+      var after=node.nodeValue.substring(idx+matchLen);
+      var mark=document.createElement('mark');
+      mark.style.cssText='background:'+bgColor+';border-bottom:2px solid '+borderColor+';cursor:pointer;border-radius:2px;padding:0 1px;';
+      mark.setAttribute('data-comment-id',commentId);
+      mark.title='Click to see comment #'+commentId;
+      mark.textContent=node.nodeValue.substring(idx,idx+matchLen);
+      mark.addEventListener('click',function(){
+        var id=this.getAttribute('data-comment-id');
+        // Scroll sidebar to the matching comment card
+        var card=document.querySelector('[data-qf-card="'+id+'"]');
+        if(card){
+          card.scrollIntoView({behavior:'smooth',block:'nearest'});
+          card.style.boxShadow='0 0 0 3px rgba(13,110,253,.4)';
+          setTimeout(function(){card.style.boxShadow='';},2500);
+        }
+      });
+
+      var parent=node.parentNode;
+      if(before) parent.insertBefore(document.createTextNode(before),node);
+      parent.insertBefore(mark,node);
+      if(after) parent.insertBefore(document.createTextNode(after),node);
+      parent.removeChild(node);
+      break;
+    }
+  }
 })();
 </script>
 {{/html}}
